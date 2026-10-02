@@ -14,12 +14,27 @@ class Entity(models.Model):
 
 
 class Company(Entity):
+    installation_slot = models.PositiveSmallIntegerField(default=1, unique=True, editable=False)
     name = models.CharField(max_length=150)
+    name_ka = models.CharField(max_length=150, blank=True)
+    address = models.CharField(max_length=300, blank=True)
+    phone = models.CharField(max_length=40, blank=True)
+    theme = models.CharField(max_length=10, choices=[("mint", "Mint"), ("blue", "Blue"), ("neutral", "Neutral")], default="mint")
     code = models.SlugField(unique=True, max_length=50)
     currency = models.CharField(max_length=3, default="GEL", editable=False)
     active = models.BooleanField(default=True)
     advertisement = models.CharField(max_length=250, blank=True, default="Welcome to our store")
+    class Meta:
+        constraints = [models.CheckConstraint(condition=models.Q(installation_slot=1), name="pos_one_company_slot")]
     def __str__(self): return self.name
+
+
+class Installation(models.Model):
+    id = models.PositiveSmallIntegerField(primary_key=True, default=1, editable=False)
+    public_id = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    completed_at = models.DateTimeField(null=True, blank=True)
+    class Meta:
+        constraints = [models.CheckConstraint(condition=models.Q(id=1), name="pos_one_installation")]
 
 
 class Location(Entity):
@@ -251,6 +266,27 @@ class DeviceEnrollment(models.Model):
     address_hint = models.CharField(max_length=300, blank=True)
     enrolled_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class EnrollmentRequest(models.Model):
+    installation_id = models.UUIDField(primary_key=True)
+    secret_hash = models.CharField(max_length=64)
+    branch_name = models.CharField(max_length=150)
+    branch_address = models.CharField(max_length=300, blank=True)
+    status = models.CharField(max_length=10, choices=[("pending", "Pending"), ("approved", "Approved"), ("rejected", "Rejected")], default="pending")
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField()
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    reviewed_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, on_delete=models.PROTECT)
+
+
+class PairingCode(Entity):
+    code_hash = models.CharField(max_length=64, unique=True)
+    branch = models.ForeignKey(Location, on_delete=models.PROTECT)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    expires_at = models.DateTimeField()
+    consumed_at = models.DateTimeField(null=True, blank=True)
+    installation_id = models.UUIDField(null=True, blank=True)
 
 
 class CashierSession(Entity):

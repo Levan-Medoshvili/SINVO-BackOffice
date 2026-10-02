@@ -1,12 +1,22 @@
 pipeline {
     agent any
-    options { timestamps(); disableConcurrentBuilds(); timeout(time: 75, unit: 'MINUTES'); buildDiscarder(logRotator(numToKeepStr: '15')) }
+    options { timestamps(); skipDefaultCheckout(true); disableConcurrentBuilds(); timeout(time: 75, unit: 'MINUTES'); buildDiscarder(logRotator(numToKeepStr: '15')) }
     parameters {
         string(name: 'TARGET_HOST', defaultValue: '10.0.110.151', description: 'Rocky Linux 9 ERP server')
         choice(name: 'DB_ENGINE', choices: ['postgres', 'mysql', 'mssql'], description: 'PostgreSQL is installed automatically for a fresh server; other engines require backend.env configuration')
         string(name: 'HTTP_ALLOWED_CIDRS', defaultValue: '10.0.0.0/8', description: 'Comma-separated private networks allowed to reach the HTTP pilot')
     }
     stages {
+        stage('Checkout') {
+            steps {
+                script {
+                    def revision = checkout scm
+                    env.GIT_BRANCH = revision.GIT_BRANCH ?: env.GIT_BRANCH ?: ''
+                    env.GIT_COMMIT = revision.GIT_COMMIT ?: env.GIT_COMMIT ?: ''
+                    env.POS_DEPLOYED = 'false'
+                }
+            }
+        }
         stage('Check source') {
             steps {
                 sh '''#!/usr/bin/env bash
@@ -31,17 +41,26 @@ git archive --format=tar.gz --output="artifacts/$revision.tar.gz" HEAD backend d
         }
         stage('Install, test and deploy ERP') {
             when {
-                expression { !env.CHANGE_ID && (env.BRANCH_NAME == 'Production' || env.GIT_BRANCH == 'origin/Production' || env.GIT_BRANCH == 'Production') }
+                expression { !env.CHANGE_ID && ['Production', 'origin/Production', 'refs/heads/Production', 'refs/remotes/origin/Production'].contains(env.BRANCH_NAME ?: env.GIT_BRANCH) }
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'pos_server_creds', usernameVariable: 'POS_SSH_USER', passwordVariable: 'POS_SSH_PASSWORD')]) {
                     sh(label: 'Deploy on Rocky Linux', script: 'bash ci/deploy.sh')
                 }
+                script { env.POS_DEPLOYED = 'true' }
             }
         }
     }
     post {
-        success { echo 'For a successful Production deployment: http://10.0.110.151/admin/ . Initial login instructions are in docs/deployment.md.' }
+        success {
+            script {
+                if (env.POS_DEPLOYED == 'true') {
+                    echo "ERP deployment and health checks succeeded: http://${params.TARGET_HOST ?: '10.0.110.151'}/admin/ . Initial login instructions are in docs/deployment.md."
+                } else {
+                    echo 'Source checks succeeded. This build did not deploy; select the Production branch for server deployment.'
+                }
+            }
+        }
         failure { echo 'Deployment did not complete. Check the failed stage; do not reset the database or POS queues.' }
     }
 }

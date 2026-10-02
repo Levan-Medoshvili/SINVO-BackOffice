@@ -1,0 +1,399 @@
+{
+  "manifest_version": 2,
+  "status": "design_baseline_not_live_schema",
+  "reviewed_at": "2026-10-01",
+  "source_protocol_version": "4.0.4",
+  "operations_url": "https://services.rs.ge/WayBillService/WayBillService.asmx",
+  "read_operations": [
+    "get_buyer_waybills",
+    "get_buyer_waybills_ex",
+    "get_waybill",
+    "get_waybills_v1"
+  ],
+  "lookup_operations": [
+    "get_waybill_units",
+    "get_waybill_types",
+    "get_trans_types",
+    "get_akciz_codes",
+    "get_error_codes",
+    "get_wood_types"
+  ],
+  "rules": {
+    "preserve_raw_document": true,
+    "preserve_unknown_elements": true,
+    "preserve_original_decimal_and_datetime_text": true,
+    "external_identifiers_as_strings": true,
+    "missing_is_not_zero": true,
+    "optionality_requires_live_verification": true,
+    "goods_id_is_not_local_product_id": true
+  },
+  "document_fields": [
+    {
+      "xml": "ID",
+      "internal": "rs_waybill_id",
+      "kind": "identifier"
+    },
+    {
+      "xml": "WAYBILL_NUMBER",
+      "internal": "number",
+      "kind": "string"
+    },
+    {
+      "xml": "TYPE",
+      "internal": "type_code",
+      "kind": "code"
+    },
+    {
+      "xml": "STATUS",
+      "internal": "status_code",
+      "kind": "code"
+    },
+    {
+      "xml": "CREATE_DATE",
+      "internal": "created_at",
+      "kind": "datetime"
+    },
+    {
+      "xml": "ACTIVATE_DATE",
+      "internal": "activated_at",
+      "kind": "datetime"
+    },
+    {
+      "xml": "BEGIN_DATE",
+      "internal": "transport_started_at",
+      "kind": "datetime"
+    },
+    {
+      "xml": "DELIVERY_DATE",
+      "internal": "delivered_at",
+      "kind": "datetime"
+    },
+    {
+      "xml": "CLOSE_DATE",
+      "internal": "closed_at",
+      "kind": "datetime"
+    },
+    {
+      "xml": "BUYER_TIN",
+      "internal": "buyer_tax_id",
+      "kind": "string"
+    },
+    {
+      "xml": "CHEK_BUYER_TIN",
+      "internal": "buyer_tin_check",
+      "kind": "code"
+    },
+    {
+      "xml": "BUYER_NAME",
+      "internal": "buyer_name",
+      "kind": "string"
+    },
+    {
+      "xml": "SELER_UN_ID",
+      "internal": "seller_internal_id",
+      "kind": "identifier"
+    },
+    {
+      "xml": "SELLER_TIN",
+      "internal": "seller_tax_id",
+      "kind": "string"
+    },
+    {
+      "xml": "SELLER_NAME",
+      "internal": "seller_name",
+      "kind": "string"
+    },
+    {
+      "xml": "START_ADDRESS",
+      "internal": "origin_address",
+      "kind": "string"
+    },
+    {
+      "xml": "END_ADDRESS",
+      "internal": "destination_address",
+      "kind": "string"
+    },
+    {
+      "xml": "DRIVER_TIN",
+      "internal": "driver_tax_id",
+      "kind": "string"
+    },
+    {
+      "xml": "CHEK_DRIVER_TIN",
+      "internal": "driver_tin_check",
+      "kind": "code"
+    },
+    {
+      "xml": "DRIVER_NAME",
+      "internal": "driver_name",
+      "kind": "string"
+    },
+    {
+      "xml": "CAR_NUMBER",
+      "internal": "vehicle_number",
+      "kind": "string"
+    },
+    {
+      "xml": "TRANS_ID",
+      "internal": "transport_type_id",
+      "kind": "identifier"
+    },
+    {
+      "xml": "TRANS_TXT",
+      "internal": "transport_type_text",
+      "kind": "string"
+    },
+    {
+      "xml": "TRANSPORT_COAST",
+      "internal": "transport_cost",
+      "kind": "decimal"
+    },
+    {
+      "xml": "TRAN_COST_PAYER",
+      "internal": "transport_cost_payer",
+      "kind": "code"
+    },
+    {
+      "xml": "RECEPTION_INFO",
+      "internal": "sender_info",
+      "kind": "string"
+    },
+    {
+      "xml": "RECEIVER_INFO",
+      "internal": "receiver_info",
+      "kind": "string"
+    },
+    {
+      "xml": "FULL_AMOUNT",
+      "internal": "total_amount",
+      "kind": "decimal"
+    },
+    {
+      "xml": "PAR_ID",
+      "internal": "parent_waybill_id",
+      "kind": "identifier"
+    },
+    {
+      "xml": "S_USER_ID",
+      "internal": "service_user_id",
+      "kind": "identifier"
+    },
+    {
+      "xml": "COMMENT",
+      "internal": "detail_comment",
+      "kind": "string"
+    },
+    {
+      "xml": "WAYBILL_COMMENT",
+      "internal": "list_comment",
+      "kind": "string"
+    },
+    {
+      "xml": "SELLER_ST",
+      "internal": "seller_business_status",
+      "kind": "code"
+    },
+    {
+      "xml": "BUYER_ST",
+      "internal": "buyer_business_status",
+      "kind": "code"
+    },
+    {
+      "xml": "CATEGORY",
+      "internal": "document_category",
+      "kind": "code"
+    },
+    {
+      "xml": "IS_MED",
+      "internal": "medicine_flag",
+      "kind": "code"
+    },
+    {
+      "xml": "CUST_STATUS",
+      "internal": "customs_status",
+      "kind": "code"
+    },
+    {
+      "xml": "CUST_NAME",
+      "internal": "customs_name",
+      "kind": "string"
+    },
+    {
+      "xml": "IS_CONFIRMED",
+      "internal": "buyer_confirmation_status",
+      "kind": "code"
+    }
+  ],
+  "goods_fields": [
+    {
+      "xml": "ID",
+      "internal": "rs_line_id",
+      "kind": "identifier"
+    },
+    {
+      "xml": "W_NAME",
+      "internal": "source_name",
+      "kind": "string"
+    },
+    {
+      "xml": "BAR_CODE",
+      "internal": "source_barcode",
+      "kind": "string"
+    },
+    {
+      "xml": "UNIT_ID",
+      "internal": "unit_id",
+      "kind": "identifier"
+    },
+    {
+      "xml": "UNIT_TXT",
+      "internal": "unit_text",
+      "kind": "string"
+    },
+    {
+      "xml": "QUANTITY",
+      "internal": "quantity",
+      "kind": "decimal"
+    },
+    {
+      "xml": "QUANTITY_EXT",
+      "internal": "auxiliary_quantity",
+      "kind": "decimal"
+    },
+    {
+      "xml": "PRICE",
+      "internal": "unit_price",
+      "kind": "decimal"
+    },
+    {
+      "xml": "AMOUNT",
+      "internal": "line_amount",
+      "kind": "decimal"
+    },
+    {
+      "xml": "STATUS",
+      "internal": "status_code",
+      "kind": "code"
+    },
+    {
+      "xml": "A_ID",
+      "internal": "excise_code_id",
+      "kind": "identifier"
+    },
+    {
+      "xml": "VAT_TYPE",
+      "internal": "vat_type_code",
+      "kind": "code"
+    },
+    {
+      "xml": "W_ID",
+      "internal": "timber_type_id",
+      "kind": "identifier"
+    },
+    {
+      "xml": "WOOD_LABEL",
+      "internal": "timber_label",
+      "kind": "string"
+    }
+  ],
+  "related_waybill_fields": [
+    {
+      "xml": "ID",
+      "internal": "rs_waybill_id",
+      "kind": "identifier"
+    },
+    {
+      "xml": "WAYBILL_NUMBER",
+      "internal": "number",
+      "kind": "string"
+    }
+  ],
+  "source_context": {
+    "SELLER_TIN": "incoming list; detail may require enrichment",
+    "SELLER_NAME": "incoming list",
+    "SELLER_ST": "incoming list",
+    "BUYER_ST": "outgoing list",
+    "WAYBILL_COMMENT": "list result",
+    "COMMENT": "detail result",
+    "CATEGORY": "document detail; RS category, not SimplePOS product category",
+    "IS_MED": "document detail; medicine indicator",
+    "CUST_STATUS": "document detail; customs status",
+    "CUST_NAME": "document detail; customs name",
+    "IS_CONFIRMED": "incoming extended list; separate from document STATUS",
+    "W_ID": "goods line; timber type reference",
+    "WOOD_LABEL": "goods line; timber label"
+  },
+  "local_receipt_fields": [
+    "company_id",
+    "integration_account_id",
+    "source_revision",
+    "received_at",
+    "destination_location_id",
+    "mapped_product_id",
+    "received_quantity",
+    "unit_conversion",
+    "discrepancy_reason",
+    "posted_by",
+    "idempotency_key"
+  ],
+  "notes": [
+    "Fields are documented by the supplied v4.0.4 protocol; authenticated document fixtures are still needed to confirm operation-specific shape and optionality.",
+    "QUANTITY_EXT optionality is inconsistent in the source protocol. Verify before external writes.",
+    "Preserve source VAT classification; it is not a retail tax percentage.",
+    "Missing or ambiguous goods IDs require review; never substitute barcode for line identity.",
+    "UNIT_TXT is required for UNIT_ID=99 in the save protocol.",
+    "BAR_CODE represents a medicine registration number when IS_MED=1; it is not necessarily a scanner barcode.",
+    "IS_CONFIRMED uses 0 unconfirmed, 1 confirmed, -1 rejected; unknown values require review.",
+    "The PDF contains malformed sample tags. Do not copy sample XML verbatim.",
+    "The get_waybills_v1 result schema is not fully enumerated; do not invent a LAST_UPDATE_DATE field."
+  ],
+  "source_document": "waybill_protocol.pdf (owner-supplied, 42 PDF pages)",
+  "source_latest_change": "2024-10-03",
+  "legacy_source_url": "https://eservices.rs.ge/Docs/el-zednadebis_protokoli.pdf",
+  "wood_document_path": "WOOD_DOCS_LIST/WOODDOCUMENT",
+  "wood_document_fields": [
+    {
+      "xml": "ID",
+      "internal": "rs_wood_document_id",
+      "kind": "identifier"
+    },
+    {
+      "xml": "DOC_N",
+      "internal": "document_number",
+      "kind": "string"
+    },
+    {
+      "xml": "DOC_DATE",
+      "internal": "document_date",
+      "kind": "datetime"
+    },
+    {
+      "xml": "DOC_DESC",
+      "internal": "description",
+      "kind": "string"
+    },
+    {
+      "xml": "STATUS",
+      "internal": "status_code",
+      "kind": "code"
+    }
+  ],
+  "incremental_query": {
+    "operation": "get_waybills_v1",
+    "start_parameter": "last_update_date_s",
+    "end_parameter": "last_update_date_e",
+    "max_window_days": 3,
+    "precision": "seconds",
+    "directions": "incoming_and_outgoing",
+    "timezone": "requires_service_verification",
+    "cursor_commit": "after_complete_durable_window_staging",
+    "overlap_and_revision_deduplication_required": true
+  },
+  "deprecated_fields": [
+    {
+      "xml": "WOOD_LABELS",
+      "scope": "document",
+      "note": "Removed per protocol history on 2016-08-01; preserve if observed in raw source, do not emit as a new document field."
+    }
+  ]
+}

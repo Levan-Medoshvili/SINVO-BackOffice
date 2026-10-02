@@ -1,0 +1,27 @@
+[Unit]
+Description=SimplePOS ERP API
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=simplepos
+Group=simplepos
+WorkingDirectory=/opt/pos-erp/current/backend
+EnvironmentFile=/etc/pos-erp/backend.env
+EnvironmentFile=-/etc/pos-erp/release.env
+Environment=PYTHONUNBUFFERED=1
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/opt/pos-erp/current/.venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 60 --access-logfile - --error-logfile -
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=75
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/pos-erp
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,14 @@
+__pycache__/
+*.py[cod]
+.venv/
+.ci-venv/
+node_modules/
+dist/
+artifacts/
+*.env
+*.sqlite*
+**/var/
+*.pem
+*.key
+media/
+staticfiles/

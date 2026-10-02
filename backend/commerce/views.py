@@ -1,0 +1,56 @@
+from django.conf import settings
+from django.db import connection, DatabaseError
+from django.http import JsonResponse
+from django.utils import timezone
+from rest_framework.decorators import api_view
+from rest_framework.response import Response
+from .models import StockItem
+from .services import receive_sale, SaleRejected, SaleConflict
+
+
+def health(request):
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+    except DatabaseError:
+        return JsonResponse({"status": "unavailable"}, status=503)
+    return JsonResponse({"status": "ok", "api_version": 1, "build_revision": settings.SIMPLEPOS_BUILD_REVISION})
+
+
+@api_view(["GET"])
+def catalog(request):
+    register = request.auth
+    company = register.location.company
+    rows = StockItem.objects.filter(location=register.location, enabled=True, product__active=True,
+        product__company=company).select_related("product__current_price", "product__category").order_by("product__name", "product_id")
+    products = []
+    for stock in rows:
+        p = stock.product
+        if not p.current_price_id:
+            continue
+        products.append({"id": str(p.pk), "barcode": p.barcode, "name": p.name, "name_ka": p.name_ka,
+            "category": p.category.name if p.category else "", "category_ka": p.category.name_ka if p.category else "",
+            "unit": p.unit, "price_minor": p.current_price.price_minor, "price_id": str(p.current_price_id)})
+    return Response({"api_version": 1, "generated_at": timezone.now().isoformat(), "brand": settings.SIMPLEPOS_BRAND,
+        "company": {"id": str(company.pk), "name": company.name, "currency": company.currency, "advertisement": company.advertisement},
+        "branch": {"id": str(register.location_id), "name": register.location.name},
+        "register": {"id": str(register.pk), "name": register.name}, "products": products})
+
+
+@api_view(["POST"])
+def sales(request):
+    batch = request.data.get("sales") if isinstance(request.data, dict) else None
+    if not isinstance(batch, list) or not 1 <= len(batch) <= 100:
+        return Response({"detail": "Send 1–100 sales."}, status=400)
+    results = []
+    for item in batch:
+        client_id = item.get("id") if isinstance(item, dict) else None
+        try:
+            saved, duplicate = receive_sale(request.auth, item)
+            results.append({"id": str(saved.client_id), "status": "acknowledged", "server_id": str(saved.pk), "duplicate": duplicate})
+        except SaleConflict as exc:
+            results.append({"id": client_id, "status": "conflict", "detail": str(exc)})
+        except SaleRejected as exc:
+            results.append({"id": client_id, "status": "rejected", "detail": str(exc)})
+    return Response({"results": results})

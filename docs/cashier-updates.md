@@ -84,3 +84,15 @@ Installation waits for no basket, receipt handover, printing or unsynchronized s
 **Existing v0.3 terminals need a one-time upgrade to Cashier v0.4 and the matching v0.4+ trusted starter.** Old starters do not support pinned target versions. The new starter writes updater protocol 2; do not edit an old starter's configuration to claim support. Use the same operating-system user profile to preserve the SQLite database, encrypted identity and credentials. A manually extracted ZIP works immediately; managed updates remain unavailable until its trusted updater is configured.
 
 The managed Rocky proxy allows 1100 MB only at `/updates/import/`, 6 MB under `/advertisements/`, and uses a 300-second worker timeout. Apply equivalent limits to custom HTTPS proxies. Uploads are never executed by the importer. Windows packaging is verified on Linux; native Windows starter execution and the production Jenkins result require verification on the target environment.
+
+## Automatic publication from Jenkins
+
+Cashier's Production pipeline can now sign a Windows release and register it directly in BackOffice. See the Cashier repository's [one-time Jenkins and POS setup](https://github.com/Levan-Medoshvili/pos-cashier/blob/Production/docs/automatic-release-publishing.md). The ERP Production deployment must include the importer before the first publication.
+
+The trusted server-side entry point is:
+
+```bash
+sudo pos-erp-manage import_cashier_release /path/to/signed-bundle --actor YOUR_ADMIN_USERNAME
+```
+
+The actor must be an existing active superuser. The directory contains the signed manifest, signature and archive. The same signature, size, hash and immutable-version checks used by browser imports apply. Retrying an identical bundle preserves the release record; replacing a version or reusing damaged stored files fails. Importing makes the version selectable under Cashier updates and does not create a rollout. Administrators still select the branches and deployment time in BackOffice.

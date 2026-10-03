@@ -1,8 +1,16 @@
 from django.urls import path
-from . import views
+from . import views, management
 
 app_name = 'backoffice'
 urlpatterns = [
+    path('advertisements/', management.advertisements, name='advertisements'),
+    path('advertisements/add/', management.advertisement_edit, name='advertisement-add'),
+    path('advertisements/<uuid:identifier>/', management.advertisement_edit, name='advertisement-edit'),
+    path('advertisements/<uuid:identifier>/preview/', management.advertisement_preview, name='advertisement-preview'),
+    path('updates/', management.updates, name='updates'),
+    path('updates/import/', management.release_import, name='release-import'),
+    path('updates/<uuid:identifier>/', management.rollout, name='rollout'),
+    path('updates/<uuid:identifier>/cancel/', management.cancel_rollout, name='rollout-cancel'),
     path('', views.dashboard, name='dashboard'),
     path('setup/', views.setup, name='setup'),
     path('login/', views.sign_in, name='login'),

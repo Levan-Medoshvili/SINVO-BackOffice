@@ -69,3 +69,5 @@ if not 1 <= SIMPLEPOS_OFFLINE_LOGIN_DAYS <= 30:
     raise ImproperlyConfigured("SIMPLEPOS_OFFLINE_LOGIN_DAYS must be between 1 and 30.")
 SIMPLEPOS_ALLOW_LEGACY_SALES = os.environ.get("SIMPLEPOS_ALLOW_LEGACY_SALES", "0") == "1"
 SIMPLEPOS_RELEASE_DIR = Path(os.environ.get("SIMPLEPOS_RELEASE_DIR", DATA_DIR / "cashier-releases"))
+
+SIMPLEPOS_RELEASE_PUBLIC_KEY = Path(os.environ.get("SIMPLEPOS_RELEASE_PUBLIC_KEY", "/etc/pos-erp/cashier-release-public.pem"))

@@ -11,6 +11,7 @@ urlpatterns = [
     path('i18n/', include('django.conf.urls.i18n')),
     path('healthz/', health),
     path("cashier/releases/<str:platform>/<str:filename>", release_file),
+    path("cashier/releases/<str:platform>/versions/<str:version>/<str:filename>", release_file),
     path('api/v1/', include('commerce.urls')),
 ]
 

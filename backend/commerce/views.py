@@ -34,7 +34,8 @@ def catalog(request):
         products.append({"id": str(p.pk), "barcode": p.barcode, "name": p.name, "name_ka": p.name_ka,
             "category": p.category.name if p.category else "", "category_ka": p.category.name_ka if p.category else "",
             "unit": p.unit, "price_minor": p.current_price.price_minor, "price_id": str(p.current_price_id)})
-    return Response({"api_version": 1, "generated_at": timezone.now().isoformat(), "brand": settings.SIMPLEPOS_BRAND,
+    from .advertisements import playlist
+    return Response({"advertisements":playlist(register.location), "api_version": 1, "generated_at": timezone.now().isoformat(), "brand": settings.SIMPLEPOS_BRAND,
         "company": {"id": str(company.pk), "name": company.name, "currency": company.currency, "advertisement": company.advertisement, "removal_notice_minutes": company.removal_notice_minutes},
         "branch": {"id": str(register.location_id), "name": register.location.name},
         "register": {"id": str(register.pk), "name": register.name}, "products": products})

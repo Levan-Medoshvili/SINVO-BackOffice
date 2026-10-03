@@ -5,6 +5,8 @@ from django.utils.translation import get_language
 
 register = template.Library()
 TRANSLATIONS = {
+    'Advertisements': 'რეკლამები', 'Cashier updates': 'სალაროს განახლებები',
+    'Removal notice minutes': 'წაშლის შეტყობინების ხანგრძლივობა (წუთი)',
     'Overview': 'მიმოხილვა', 'Workspace': 'სამუშაო სივრცე', 'Management': 'მართვა', 'Settings': 'პარამეტრები',
     'Sales': 'გაყიდვები', 'Live checkouts': 'მიმდინარე კალათები', 'Products': 'პროდუქტები', 'Categories': 'კატეგორიები',
     'Branches': 'ფილიალები', 'Warehouses': 'საწყობები', 'Inventory': 'მარაგები', 'POS terminals': 'POS ტერმინალები',

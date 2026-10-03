@@ -1,4 +1,4 @@
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 from django.db import transaction
 from commerce.models import Company, Location, Category, Product, StockItem, StockAdjustment, Register
 
@@ -8,6 +8,8 @@ class Command(BaseCommand):
 
     @transaction.atomic
     def handle(self, *args, **options):
+        if Company.objects.exclude(code="pilot").exists():
+            raise CommandError("This installation already belongs to a company. Pilot data cannot be added.")
         company, _ = Company.objects.get_or_create(code="pilot", defaults={"name": "Pilot Markets"})
         branch, _ = Location.objects.get_or_create(company=company, code="store-1", defaults={"name": "Pilot store", "kind": "branch"})
         Location.objects.get_or_create(company=company, code="warehouse-1", defaults={"name": "Pilot warehouse", "kind": "warehouse"})

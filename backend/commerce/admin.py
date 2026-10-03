@@ -21,6 +21,7 @@ class HistoryAdmin(PlatformAdmin):
 @admin.register(Company)
 class CompanyAdmin(PlatformAdmin):
     list_display = ["name", "code", "currency", "active"]
+    def has_add_permission(self, request): return False
 
 
 @admin.register(Location)

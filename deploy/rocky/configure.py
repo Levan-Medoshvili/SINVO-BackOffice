@@ -51,11 +51,11 @@ def main():
               'SIMPLEPOS_DATA_DIR': '/var/lib/pos-erp-ci', 'DB_NAME': 'simplepos_erp_ci',
               'DB_USER': 'simplepos_erp_ci', 'DB_PASSWORD': secrets.token_urlsafe(32)}
         write_private(root / 'ci.env', ci)
-        write_private(root / 'initial-admin.env', {'DJANGO_SUPERUSER_USERNAME': 'admin',
-                      'DJANGO_SUPERUSER_PASSWORD': secrets.token_urlsafe(24)})
         marker = root / 'managed-postgres.json'
         marker.write_text(json.dumps({'initialized': False}))
         marker.chmod(0o600)
+    if not (root / 'setup.env').exists():
+        write_private(root / 'setup.env', {'SIMPLEPOS_SETUP_TOKEN': secrets.token_urlsafe(32)})
     current = read_env(env)
     if current.get('DB_ENGINE') != engine:
         raise SystemExit('Selected DB_ENGINE differs from backend.env. Database conversion must be planned separately.')

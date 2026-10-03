@@ -13,7 +13,7 @@ EnvironmentFile=-/etc/pos-erp/setup.env
 EnvironmentFile=-/etc/pos-erp/release.env
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONDONTWRITEBYTECODE=1
-ExecStart=/opt/pos-erp/current/.venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 60 --access-logfile - --error-logfile -
+ExecStart=/opt/pos-erp/current/.venv/bin/gunicorn config.wsgi:application --bind 127.0.0.1:8000 --workers 3 --timeout 300 --access-logfile - --error-logfile -
 Restart=on-failure
 RestartSec=5
 TimeoutStopSec=75

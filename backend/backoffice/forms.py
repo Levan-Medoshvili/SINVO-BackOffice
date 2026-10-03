@@ -30,7 +30,7 @@ class CompanyForm(forms.ModelForm):
     name_ka = forms.CharField(label='Company name (GEO)', max_length=150)
     class Meta:
         model = Company
-        fields = ['name','name_ka','address','phone','theme','advertisement']
+        fields = ['name','name_ka','address','phone','theme','advertisement','removal_notice_minutes']
         labels = {'name':'Company name (ENG)','advertisement':'Customer display welcome text'}
 
 class ScopedForm(forms.ModelForm):
@@ -106,7 +106,15 @@ class AdjustmentForm(forms.Form):
 class RegisterForm(forms.ModelForm):
     class Meta:
         model=Register
-        fields=['name','active']
+        fields=['location','name','code','active']
+        labels={'location':'Branch'}
+    def __init__(self,*args,company,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.fields['location'].queryset=Location.objects.filter(company=company,kind='branch',active=True).order_by('name')
+        if not self.instance._state.adding:
+            self.fields['location'].queryset=Location.objects.filter(company=company,kind='branch').order_by('name')
+            self.fields['location'].disabled=True
+            self.fields['code'].disabled=True
 
 class GroupForm(ScopedForm):
     class Meta:
@@ -159,3 +167,66 @@ class EmployeeForm(forms.Form):
         access,_=EmployeeAccess.objects.update_or_create(user=user,defaults={'company':self.company,'application':data['application'],'all_branches':data['all_branches']})
         for field in ['branches','groups','permissions']: getattr(access,field).set(data[field])
         return user
+
+
+class AdvertisementForm(ScopedForm):
+    upload = forms.ImageField(label='Advertisement image',required=False,help_text='PNG, JPEG or WebP, up to 5 MB. Images are resized for the Cashier display.')
+    remove_image = forms.BooleanField(required=False,label='Remove current image')
+    class Meta:
+        from commerce.models import Advertisement
+        model=Advertisement
+        fields=['title','text','upload','remove_image','active','all_branches','branches','starts_at','ends_at','duration_seconds','position']
+        widgets={'branches':forms.CheckboxSelectMultiple,'starts_at':forms.DateTimeInput(attrs={'type':'datetime-local'},format='%Y-%m-%dT%H:%M'),'ends_at':forms.DateTimeInput(attrs={'type':'datetime-local'},format='%Y-%m-%dT%H:%M')}
+        help_texts={'starts_at':'Optional start time, Asia/Tbilisi.','ends_at':'Optional end time, Asia/Tbilisi.','position':'Lower numbers appear first. Up to 10 active advertisements are displayed per branch.'}
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.fields['branches'].queryset=Location.objects.filter(company=self.company,kind='branch').order_by('name')
+    def clean_upload(self):
+        upload=self.cleaned_data.get('upload')
+        if not upload: return None
+        if upload.size>5*1024*1024 or upload.image.format not in {'JPEG','PNG','WEBP'}: raise forms.ValidationError('Choose a PNG, JPEG or WebP image up to 5 MB.')
+        if upload.image.width*upload.image.height>20000000: raise forms.ValidationError('Image resolution must be at most 20 megapixels.')
+        return upload
+    def clean(self):
+        data=super().clean()
+        if not data.get('all_branches') and not data.get('branches'): self.add_error('branches','Choose at least one branch or enable all branches.')
+        if data.get('starts_at') and data.get('ends_at') and data['ends_at']<=data['starts_at']: self.add_error('ends_at','End time must be after start time.')
+        if not data.get('text') and not data.get('upload') and (not self.instance.image or data.get('remove_image')): raise forms.ValidationError('Add advertisement text or an image.')
+        return data
+    def save(self,commit=True):
+        import hashlib, io, uuid
+        from PIL import Image, ImageOps
+        from django.core.files.base import ContentFile
+        item=super().save(commit=False)
+        if self.cleaned_data.get('remove_image'): item.image=''; item.image_sha256=''
+        upload=self.cleaned_data.get('upload')
+        if upload:
+            upload.seek(0)
+            with Image.open(upload) as source:
+                image=ImageOps.exif_transpose(source).convert('RGB'); image.thumbnail((1600,900))
+                output=io.BytesIO(); image.save(output,format='WEBP',quality=85)
+            raw=output.getvalue(); item.image_sha256=hashlib.sha256(raw).hexdigest()
+            item.image.save(str(uuid.uuid4())+'.webp',ContentFile(raw),save=False)
+        if commit: item.save(); self.save_m2m()
+        return item
+
+
+class ReleaseImportForm(forms.Form):
+    manifest=forms.FileField(label='manifest.json')
+    signature=forms.FileField(label='manifest.sig')
+    archive=forms.FileField(label='Signed Cashier package',help_text='Windows .zip or Linux .AppImage generated with the release signing tool. Maximum 1 GB.')
+
+
+class RolloutForm(forms.Form):
+    from commerce.models import CashierRelease
+    release=forms.ModelChoiceField(queryset=CashierRelease.objects.order_by('-created_at'))
+    all_branches=forms.BooleanField(label='All active branches',required=False,initial=True)
+    branches=forms.ModelMultipleChoiceField(queryset=Location.objects.none(),required=False,widget=forms.CheckboxSelectMultiple)
+    starts_at=forms.DateTimeField(label='Schedule (Asia/Tbilisi)',required=False,widget=forms.DateTimeInput(attrs={'type':'datetime-local'}),help_text='Leave empty to push now. Each POS installs when idle and fully synchronized. Targets the active POS terminals currently in these branches.')
+    def __init__(self,*args,company,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.fields['branches'].queryset=Location.objects.filter(company=company,kind='branch',active=True).order_by('name')
+    def clean(self):
+        data=super().clean()
+        if not data.get('all_branches') and not data.get('branches'): self.add_error('branches','Choose at least one branch or all branches.')
+        return data

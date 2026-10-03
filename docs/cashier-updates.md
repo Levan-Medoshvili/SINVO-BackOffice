@@ -59,3 +59,28 @@ Use one update coordinator and platform-specific packaging/install adapters. Ver
 - Wrong platform, tampered package, insufficient disk, incompatible schema and interrupted download leave the previous working application available.
 
 The design exercises manual checks, downloading, busy-sale and receipt-handover waits, idle countdowns and branch targeting. The installed pilot now has durable sales/queue recovery; its starter tests verify manifest signatures, package digests, failed-download preservation and offline cached launch. The v0.3 updater adds an in-app maintenance lock and signed release checks. The full scheduled-update service, native Windows starter execution and bank/printer coordination still require implementation or integration validation.
+
+## v0.4 branch-targeted rollouts
+
+BackOffice now has **Cashier updates → Import release**. Upload the Windows ZIP or Linux AppImage together with its signed `manifest.json` and `manifest.sig`. The server verifies the signature and full package SHA-256 and stores the version immutably. A version cannot be replaced with another package.
+
+Configure `SIMPLEPOS_RELEASE_PUBLIC_KEY` (default `/etc/pos-erp/cashier-release-public.pem`) with your existing trusted RSA public key, readable by `simplepos`. Keep the private key with the release operator, outside both repositories and off the BackOffice server. Do not replace an existing key to resolve a signature error.
+
+For a new installation with no signing key, create an RSA key of at least 3072 bits in a protected location, export only the public key to the server, and use the Cashier publisher:
+
+```sh
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:3072 -out cashier-release-private.pem
+chmod 600 cashier-release-private.pem
+openssl pkey -in cashier-release-private.pem -pubout -out cashier-release-public.pem
+node tools/publish_cashier_release.cjs /path/to/SimplePOS-Cashier-0.4.0-win-x64.zip win-x64 0.4.0 /protected/cashier-release-private.pem /path/to/published
+```
+
+The publisher runs in the pos-cashier repository. It creates the signed package metadata, immutable `versions/VERSION/` files and a trusted starter with the public key pinned. For a starter's first installation, the release operator publishes the platform folder under the configured server release directory, preserving its root manifest, signature and package. BackOffice imports populate version-specific endpoints and do not alter the legacy latest-release endpoint.
+
+Select the imported release in BackOffice, then choose all active branches or selected branches and push now or schedule a time in Asia/Tbilisi. A rollout captures the active POS terminals at creation; newly added terminals need another rollout. Known terminals for a different platform are excluded. The POS versions table shows last version/report and updater readiness. Devices poll every 30 seconds, including while signed out; offline devices catch up when reconnected. Failed checks retry after five minutes.
+
+Installation waits for no basket, receipt handover, printing or unsynchronized sales. Statuses distinguish waiting, installing, installed and error. Cancel prevents updates that have not started; an already launched installer can finish. A new cancelled rollout never reactivates an older rollout.
+
+**Existing v0.3 terminals need a one-time upgrade to Cashier v0.4 and the matching v0.4+ trusted starter.** Old starters do not support pinned target versions. The new starter writes updater protocol 2; do not edit an old starter's configuration to claim support. Use the same operating-system user profile to preserve the SQLite database, encrypted identity and credentials. A manually extracted ZIP works immediately; managed updates remain unavailable until its trusted updater is configured.
+
+The managed Rocky proxy allows 1100 MB only at `/updates/import/`, 6 MB under `/advertisements/`, and uses a 300-second worker timeout. Apply equivalent limits to custom HTTPS proxies. Uploads are never executed by the importer. Windows packaging is verified on Linux; native Windows starter execution and the production Jenkins result require verification on the target environment.

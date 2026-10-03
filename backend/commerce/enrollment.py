@@ -24,23 +24,32 @@ def code_digest(code):
     return hmac.new(settings.SECRET_KEY.encode(), ("pos-pair:" + code).encode(), hashlib.sha256).hexdigest()
 
 @transaction.atomic
-def generate_code(branch, actor):
+def generate_code(branch, actor, register=None):
     Location.objects.select_for_update().get(pk=branch.pk)
     if not branch.active or branch.kind != "branch": raise ValidationError("Choose an active branch.")
-    PairingCode.objects.filter(branch=branch, consumed_at__isnull=True).update(expires_at=timezone.now())
+    if register:
+        register = Register.objects.select_for_update().get(pk=register.pk)
+        if register.location_id != branch.pk or not register.active or register.token_hash or DeviceEnrollment.objects.filter(register=register).exists():
+            raise ValidationError("Only an active, unpaired POS can receive a pairing code.")
+    PairingCode.objects.filter(branch=branch, register=register, consumed_at__isnull=True).update(expires_at=timezone.now())
     while True:
         code = "".join(secrets.choice(ALPHABET) for _ in range(5))
         if not PairingCode.objects.filter(code_hash=code_digest(code)).exists(): break
-    PairingCode.objects.create(branch=branch, created_by=actor, code_hash=code_digest(code), expires_at=timezone.now() + timedelta(minutes=10))
+    PairingCode.objects.create(branch=branch, register=register, created_by=actor, code_hash=code_digest(code), expires_at=timezone.now() + timedelta(minutes=10))
     return code
 
-def enroll(identifier, digest, branch, actor, address=""):
+def enroll(identifier, digest, branch, actor, address="", register=None):
     existing = DeviceEnrollment.objects.select_related("register__location").filter(pk=identifier).first()
     if existing:
         if not hmac.compare_digest(existing.secret_hash, digest) or existing.register.location_id != branch.pk:
             raise ValidationError("This installation is already registered elsewhere.")
         return existing
-    register = Register.objects.create(location=branch, code="pos-" + identifier.hex, name="POS " + identifier.hex[:6].upper())
+    if register:
+        register = Register.objects.select_for_update().get(pk=register.pk)
+        if register.location_id != branch.pk or not register.active or register.token_hash or DeviceEnrollment.objects.filter(register=register).exists():
+            raise ValidationError("This POS is already paired or disabled. Ask for a new code.")
+    else:
+        register = Register.objects.create(location=branch, code="pos-" + identifier.hex, name="POS " + identifier.hex[:6].upper())
     return DeviceEnrollment.objects.create(installation_id=identifier, register=register, secret_hash=digest, enrolled_by=actor, address_hint=address)
 
 @transaction.atomic
@@ -92,7 +101,10 @@ def enrollment(request):
             if not isinstance(code, str): return Response({"detail": "Enter a valid five-character code."}, status=400)
             item = PairingCode.objects.select_for_update().select_related("branch", "created_by").filter(code_hash=code_digest(code.strip().upper()), consumed_at__isnull=True, expires_at__gt=timezone.now(), branch__active=True).first()
             if not item: return Response({"detail": "Code is invalid, expired, or already used."}, status=403)
-            enroll(identifier, digest, item.branch, item.created_by)
+            try:
+                enroll(identifier, digest, item.branch, item.created_by, register=item.register)
+            except ValidationError as error:
+                return Response({"detail": "; ".join(error.messages)}, status=403)
             item.consumed_at, item.installation_id = timezone.now(), identifier
             item.save(update_fields=["consumed_at", "installation_id"])
             if pending:

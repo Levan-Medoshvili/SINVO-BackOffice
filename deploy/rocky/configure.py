@@ -71,6 +71,22 @@ def main():
     rendered = marker + '\nserver {\n    listen 80;\n    server_name ' + server + ';\n' + rules + '''    allow 127.0.0.1;
     deny all;
     client_max_body_size 2m;
+    location /advertisements/ {
+        client_max_body_size 6m;
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 65s;
+    }
+    location = /updates/import/ {
+        client_max_body_size 1100m;
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 300s;
+    }
     location / {
         proxy_pass http://127.0.0.1:8000;
         proxy_set_header Host $host;

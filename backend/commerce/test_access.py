@@ -147,7 +147,7 @@ class SupervisionTests(TestCase):
         self.client.credentials()
         self.client.force_login(self.manager)
         url = f"/checkouts/{self.register.pk}/"
-        self.assertContains(self.client.get(url), "Milk")
+        self.assertContains(self.client.get(url, follow=True), "Milk")
         self.assertEqual(self.client.get("/team/").status_code, 403)
         self.manager.pos_access.branches.clear()
         self.assertEqual(self.client.get(url).status_code, 404)

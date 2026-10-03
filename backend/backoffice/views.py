@@ -189,8 +189,8 @@ def listing(request, section):
         elif section == 'stock': cells = [item.product.name, item.location.name, f'{Decimal(item.quantity_milli)/1000:g} {item.product.get_unit_display()}', 'Active' if active else 'Disabled']
         elif section == 'groups': cells = [item.name, ', '.join(item.permissions.values_list('name', flat=True)) or '—']
         else: cells = [item.name, item.location.name, timezone.localtime(item.last_seen).strftime('%d %b %H:%M') if item.last_seen else 'Not connected yet', 'Active' if active else 'Disabled']
-        rows.append({'id': item.pk, 'cells': cells, 'active': active})
-    context = {'nav': section, 'section': section, 'title': title, 'columns': columns, 'rows': rows, 'page': page, 'q': search, 'can_add': section != 'registers'}
+        rows.append({'id': item.pk, 'cells': cells, 'active': active, 'can_pair': section == 'registers' and active and not item.token_hash and not hasattr(item, 'deviceenrollment')})
+    context = {'nav': section, 'section': section, 'title': title, 'columns': columns, 'rows': rows, 'page': page, 'q': search, 'can_add': True}
     if section == 'branches':
         context.update(pending=EnrollmentRequest.objects.filter(status='pending', expires_at__gt=timezone.now()).order_by('created_at')[:100],
             available_branches=Location.objects.filter(company=request.company, kind='branch', active=True).order_by('name'))
@@ -200,16 +200,18 @@ def listing(request, section):
 @backoffice()
 def edit(request, section, identifier=None):
     model, form_class, title, kind, query = section_info(request, section)
-    if section == 'registers' and identifier is None: raise Http404()
     item = get_object_or_404(query, pk=identifier) if identifier else model()
     if kind: item.kind = kind
     kwargs = {'instance': item}
-    if section != 'registers': kwargs['company'] = request.company
+    kwargs['company'] = request.company
     form = form_class(request.POST or None, **kwargs)
     if request.method == 'POST' and form.is_valid():
         try:
             with transaction.atomic():
-                form.save_for(request.user) if section == 'products' else form.save()
+                saved = form.save_for(request.user) if section == 'products' else form.save()
+                if section == 'registers' and identifier is None:
+                    code = generate_code(saved.location, request.user, saved)
+                    return render(request, 'backoffice/pair.html', {'nav':'registers', 'code':code, 'branch':saved.location, 'register':saved})
         except (IntegrityError, ValidationError) as error:
             form.add_error(None, 'These details could not be saved. Check for duplicate codes or names.' if isinstance(error, IntegrityError) else '; '.join(error.messages))
         else:
@@ -332,9 +334,19 @@ def sale(request, identifier):
 
 @backoffice('supervise_basket')
 def checkouts(request):
-    query = scoped_baskets(request.user, LiveBasket.objects.select_related('register__location', 'operator')).order_by('-seen_at')
-    return render(request, 'backoffice/checkouts.html', {'nav': 'checkouts', 'baskets': query[:100], 'fresh_after': timezone.now()-timedelta(seconds=15)})
-
+    from commerce.models import BasketCommand
+    branches = branches_for(request.user, request.company).order_by('name')
+    try:
+        branch = get_object_or_404(branches, pk=UUID(request.GET['branch'])) if request.GET.get('branch') else None
+    except ValueError: raise Http404() from None
+    baskets, page = [], None
+    if branch:
+        baskets = list(scoped_baskets(request.user, LiveBasket.objects.select_related('register__location', 'operator')).filter(register__location=branch).order_by('register__name'))
+        for basket in baskets: basket.lines = json.loads(basket.lines_json)
+        history = BasketCommand.objects.filter(register__location=branch).select_related('register','requested_by').order_by('-created_at')
+        page = Paginator(history, 25).get_page(request.GET.get('page'))
+    return render(request, 'backoffice/checkouts.html', {'nav':'checkouts', 'branches':branches, 'branch':branch,
+        'baskets':baskets, 'page':page, 'now':timezone.now(), 'fresh_after':timezone.now()-timedelta(seconds=15)})
 
 @backoffice('supervise_basket')
 def checkout(request, identifier):
@@ -344,10 +356,16 @@ def checkout(request, identifier):
             request_removal(request.user, snapshot.register_id, request.POST.get('basket_id'), int(request.POST.get('revision', '-1')), request.POST.get('line_key'), request.POST.get('reason'))
         except (ValidationError, ValueError) as error:
             messages.error(request, '; '.join(error.messages) if isinstance(error, ValidationError) else 'Refresh and try again.')
-        else:
-            messages.success(request, 'Removal requested. Wait for confirmation from the POS before considering it removed.')
-        return redirect('backoffice:checkout', identifier=identifier)
-    from commerce.models import BasketCommand
-    return render(request, 'backoffice/checkout.html', {'nav': 'checkouts', 'basket': snapshot, 'lines': json.loads(snapshot.lines_json),
-        'fresh': snapshot.seen_at >= timezone.now()-timedelta(seconds=15),
-        'commands': BasketCommand.objects.filter(register=snapshot.register).select_related('requested_by').order_by('-created_at')[:20]})
+        else: messages.success(request, 'Removal requested. Confirmation from the POS will appear in history.')
+    from django.urls import reverse
+    return redirect(reverse('backoffice:checkouts') + '?branch=' + str(snapshot.register.location_id))
+
+@require_POST
+@backoffice('manage_locations')
+def register_pair(request, identifier):
+    register = get_object_or_404(Register.objects.select_related('location'), pk=identifier, location__company=request.company)
+    try: code = generate_code(register.location, request.user, register)
+    except ValidationError as error:
+        messages.error(request, '; '.join(error.messages))
+        return redirect('backoffice:list', section='registers')
+    return render(request, 'backoffice/pair.html', {'nav':'registers', 'code':code, 'branch':register.location, 'register':register})

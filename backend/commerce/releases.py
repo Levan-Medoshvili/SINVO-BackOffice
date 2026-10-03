@@ -7,9 +7,14 @@ from django.views.decorators.http import require_GET
 
 
 @require_GET
-def release_file(request, platform, filename):
+def release_file(request, platform, filename, version=None):
     if platform not in {"win-x64", "linux-x64"} or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,150}", filename): raise Http404()
     root = (settings.SIMPLEPOS_RELEASE_DIR / platform).resolve()
+    if version is not None:
+        from .updates import VERSION
+        from .models import CashierRelease
+        if not re.fullmatch(VERSION, version) or not CashierRelease.objects.filter(platform=platform,version=version).exists(): raise Http404()
+        root = (root / 'versions' / version).resolve()
     target = (root / filename).resolve()
     if target.parent != root or not target.is_file(): raise Http404()
     if filename not in {"manifest.json", "manifest.sig"}:

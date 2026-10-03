@@ -3,7 +3,7 @@ import secrets
 import uuid
 from django.conf import settings
 from django.core.exceptions import ValidationError
-from django.core.validators import MaxValueValidator
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models, transaction
 
 
@@ -24,6 +24,7 @@ class Company(Entity):
     currency = models.CharField(max_length=3, default="GEL", editable=False)
     active = models.BooleanField(default=True)
     advertisement = models.CharField(max_length=250, blank=True, default="Welcome to our store")
+    removal_notice_minutes = models.PositiveSmallIntegerField(default=10, validators=[MinValueValidator(1), MaxValueValidator(1440)], help_text="Hide Cashier removal notices after this many minutes (1–1440). The X button hides them immediately; audit history is retained.")
     class Meta:
         constraints = [models.CheckConstraint(condition=models.Q(installation_slot=1), name="pos_one_company_slot")]
     def __str__(self): return self.name
@@ -281,6 +282,7 @@ class EnrollmentRequest(models.Model):
 
 
 class PairingCode(Entity):
+    register = models.ForeignKey(Register, null=True, blank=True, on_delete=models.PROTECT)
     code_hash = models.CharField(max_length=64, unique=True)
     branch = models.ForeignKey(Location, on_delete=models.PROTECT)
     created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
@@ -323,6 +325,8 @@ class BasketCommand(Entity):
     expected_revision = models.PositiveBigIntegerField()
     line_key = models.CharField(max_length=80)
     product_name = models.CharField(max_length=200)
+    quantity_milli = models.PositiveBigIntegerField(null=True, blank=True)
+    total_minor = models.PositiveBigIntegerField(null=True, blank=True)
     reason = models.CharField(max_length=250)
     requested_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
     status = models.CharField(max_length=12, choices=[("pending", "Pending"), ("applied", "Confirmed by POS"), ("rejected", "Rejected by POS"), ("expired", "Expired")], default="pending")
@@ -330,3 +334,63 @@ class BasketCommand(Entity):
     created_at = models.DateTimeField(auto_now_add=True)
     expires_at = models.DateTimeField()
     completed_at = models.DateTimeField(null=True, blank=True)
+
+
+class Advertisement(Entity):
+    company = models.ForeignKey(Company, on_delete=models.PROTECT, related_name='advertisements')
+    title = models.CharField(max_length=100)
+    text = models.CharField(max_length=250, blank=True)
+    image = models.FileField(upload_to='advertisements/', blank=True)
+    image_sha256 = models.CharField(max_length=64, blank=True, editable=False)
+    active = models.BooleanField(default=True)
+    all_branches = models.BooleanField(default=True)
+    branches = models.ManyToManyField(Location, blank=True)
+    starts_at = models.DateTimeField(null=True, blank=True)
+    ends_at = models.DateTimeField(null=True, blank=True)
+    duration_seconds = models.PositiveSmallIntegerField(default=15, validators=[MinValueValidator(5), MaxValueValidator(300)])
+    position = models.PositiveSmallIntegerField(default=0)
+    updated_at = models.DateTimeField(auto_now=True)
+    def __str__(self): return self.title
+
+
+class CashierRelease(Entity):
+    version = models.CharField(max_length=32)
+    platform = models.CharField(max_length=12, choices=[('win-x64','Windows x64'),('linux-x64','Linux x64')])
+    filename = models.CharField(max_length=160)
+    sha256 = models.CharField(max_length=64)
+    size = models.PositiveBigIntegerField()
+    uploaded_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    created_at = models.DateTimeField(auto_now_add=True)
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['version','platform'], name='pos_release_version_platform')]
+    def __str__(self): return f'{self.version} · {self.get_platform_display()}'
+
+
+class UpdateRollout(Entity):
+    company = models.ForeignKey(Company, on_delete=models.PROTECT)
+    release = models.ForeignKey(CashierRelease, on_delete=models.PROTECT)
+    created_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.PROTECT)
+    all_branches = models.BooleanField(default=False)
+    branches = models.ManyToManyField(Location)
+    starts_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    cancelled_at = models.DateTimeField(null=True, blank=True)
+
+
+class UpdateDelivery(Entity):
+    rollout = models.ForeignKey(UpdateRollout, on_delete=models.PROTECT, related_name='deliveries')
+    register = models.ForeignKey(Register, on_delete=models.PROTECT)
+    status = models.CharField(max_length=16, default='pending', choices=[('pending','Waiting for POS'),('waiting','Waiting for idle checkout'),('installing','Installing'),('installed','Installed'),('error','Needs attention'),('superseded','Superseded')])
+    detail = models.CharField(max_length=250, blank=True)
+    reported_version = models.CharField(max_length=32, blank=True)
+    reported_at = models.DateTimeField(null=True, blank=True)
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['rollout','register'], name='pos_rollout_register')]
+
+
+class CashierDeviceStatus(models.Model):
+    register = models.OneToOneField(Register, primary_key=True, on_delete=models.PROTECT)
+    version = models.CharField(max_length=32)
+    platform = models.CharField(max_length=12)
+    updater_ready = models.BooleanField(default=False)
+    seen_at = models.DateTimeField(auto_now=True)

@@ -96,7 +96,7 @@ def basket_sync(request):
         commands = [{"id": str(c.pk), "basket_id": str(c.basket_id), "expected_revision": c.expected_revision,
             "line_key": c.line_key, "reason": c.reason, "manager_name": c.requested_by.username, "expires_at": c.expires_at.isoformat()}
             for c in BasketCommand.objects.filter(register=register, status="pending").select_related("requested_by").order_by("created_at")[:20]]
-    return Response({"commands": commands, "acknowledged": accepted, "operator": policy, "access_denied": denied})
+    return Response({"commands": commands, "acknowledged": accepted, "operator": policy, "access_denied": denied, "removal_notice_minutes": register.location.company.removal_notice_minutes})
 
 
 @transaction.atomic
@@ -117,4 +117,4 @@ def request_removal(user, register_id, basket_id, revision, line_key, reason):
     if BasketCommand.objects.filter(register=register, status="pending", expires_at__gt=now).exists():
         raise ValidationError("Wait for the previous request to be confirmed or expire, then refresh.")
     return BasketCommand.objects.create(register=register, basket_id=snapshot.basket_id, expected_revision=revision,
-        line_key=line_key, product_name=line["name"], reason=reason.strip(), requested_by=user, expires_at=now + timedelta(seconds=90))
+        line_key=line_key, product_name=line["name"], quantity_milli=line["quantity_milli"], total_minor=line["total_minor"], reason=reason.strip(), requested_by=user, expires_at=now + timedelta(seconds=90))

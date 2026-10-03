@@ -18,3 +18,9 @@ document.querySelectorAll('[data-language]').forEach(select => select.addEventLi
 document.querySelectorAll('form[data-confirm]').forEach(form => form.addEventListener('submit', event => {
   if (!window.confirm(form.dataset.confirm)) event.preventDefault();
 }));
+if (document.querySelector('[data-live-refresh]')) setInterval(() => {
+  if (document.hidden || document.activeElement?.matches('input,select,textarea') ||
+      [...document.querySelectorAll('.removal-form input[name="reason"]')].some(input => input.value)) return;
+  window.location.reload();
+}, 10000);
+document.querySelector('.branch-picker select')?.addEventListener('change', event => { if (event.target.value) event.target.form.requestSubmit(); });

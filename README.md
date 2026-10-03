@@ -46,3 +46,7 @@ mkdir -p backend/var
 ```
 
 Open `/` and finish setup. Run `manage.py test commerce backoffice` with the same environment. For the real HTTP cross-repository test, clone `pos-cashier` alongside this checkout and run `.venv/bin/python tools/test_checkout_e2e.py` with Node 24 installed. `CASHIER_SOURCE_DIR` can specify another Cashier checkout path.
+
+## v0.4 management
+
+Branch checkout controls, timed notices, advertisements, named POS pairing and branch-targeted updates are described in [docs/v0.4-management.md](docs/v0.4-management.md).

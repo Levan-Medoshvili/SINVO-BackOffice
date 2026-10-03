@@ -20,13 +20,15 @@ flowchart TD
 
 BackOffice and Cashier both use the same authenticated API; neither client has central database credentials. The customer display subscribes to the local Cashier sale, so basket updates work without cloud connectivity. API and jobs share domain services for stock, pricing and permissions. Network notifications are hints to retrieve durable changes, not the source of truth.
 
-The existing Django admin can continue calling the same server-side domain services in process. New web/Cashier clients use the API boundary.
+The implemented BackOffice uses Django templates, session authentication and CSRF protection, calling the same domain services in process. Cashier uses the HTTPS API. Django's default administration routes are disabled.
 
 ## Tenant and location model
 
-Company is the tenant. Branch is an administrative store with name and address. InventoryLocation is a stock-holding location, with kind `store` or `warehouse` and optional branch relationship. A branch may contain several locations; a central warehouse need not belong to a branch. Register belongs to a company, branch and sale stock location.
+Each customer receives one VM, one ERP installation and one selected database. Exactly one Company is allowed by a unique fixed installation slot and a database check constraint. There is no company creation screen after first-start setup. Existing company foreign keys remain to validate catalog, stock, user and register relationships and preserve historical IDs.
 
-Every business object, query, import, file, cache, background job and device authorization must be tenant-scoped. Permissions include branch/location scope. Enforce relationships to the same company at the service and database boundaries; do not trust submitted company IDs. The shared implementation must work on PostgreSQL, MySQL and Microsoft SQL Server. PostgreSQL row-level security could be an optional additional layer, but cannot be the sole tenant boundary. Platform operators and company users have distinct permissions.
+The pilot represents a branch or warehouse directly as a `Location`. A register belongs to a branch. Each product can have separate stock assignments at multiple locations without duplicating its catalog identity. A future multi-location branch model would require an explicit migration.
+
+Validate relationships against the installation's company at the service and database boundaries; do not trust submitted company IDs. Employee permissions and cashier branch assignments remain server-enforced. PostgreSQL, MySQL and Microsoft SQL Server are selectable; changing the configuration does not convert existing data. Subscription/payment records, infrastructure credentials and VM lifecycle actions belong to a separate [control service](subscription-architecture.md), not the company ERP.
 
 Product is a company-wide catalog identity. ProductLocation enables that product at one inventory location. StockBalance is unique per company, product and location. Balances are derived from auditable movements, with atomic posting and concurrency control. A branch total is an aggregation of its locations, never a second balance to add to those locations.
 
@@ -85,4 +87,4 @@ Acceptance scenarios include cross-company access rejection, concurrent last-ite
 
 The first pilot represents a branch or warehouse directly as a `Location`, with `StockItem` assignments and `StockMovement` history. A later multi-location branch model will require an explicit migration. Server database selection uses environment configuration and vendor-specific requirements; switching vendors does not migrate data. Cashier always uses embedded SQLite. See [pilot setup](pilot-setup.md) and the [future appliance](appliance.md).
 
-The reviewed legacy stock tables remain available for migration analysis, but their screens are disabled by default. The new pilot uses separate company-scoped tables and services. Legacy user routes are restricted to platform administrators; this does not complete the planned tenant role system.
+The repository split removed legacy stock screens. The current custom BackOffice calls the commerce services and uses installation and employee permissions; the default Django admin is not exposed. Historical RS.ge research remains documentation, not a live integration.

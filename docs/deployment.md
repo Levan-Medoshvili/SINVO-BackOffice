@@ -24,28 +24,31 @@ Preinstall the server's console-verified SSH host key in the Jenkins OS user's p
 2. Installs build libraries, Nginx and selected database-client dependencies. Python 3.14.8 is built under `/opt/pos-erp-python/`, with a pinned source digest and checks for SSL/SQLite/ctypes. Rocky's system Python remains in place.
 3. Creates unprivileged service/build accounts, data directories, systemd configuration and the Nginx site.
 4. On a fresh default installation, installs PostgreSQL 16, creates a dedicated ERP database/login, and a separate disposable CI database/login. Existing different-major PostgreSQL data and conflicting database names cause a stop for review.
-5. Generates application/database secrets and initial administrator credentials in root-owned mode-600 files under `/etc/pos-erp`. Existing configuration and passwords are preserved.
+5. Generates application/database secrets and a first-start installation key in root-owned mode-600 files under `/etc/pos-erp`. Existing configuration and passwords are preserved.
 6. Installs the selected Python requirements into the release virtual environment as an unprivileged build user. The application itself runs as `simplepos`.
 7. Checks migrations and runs backend tests against the separate CI database, including real database locking tests.
-8. Stops central application writes, creates and checks a PostgreSQL backup, applies migrations, collects static assets, creates the first administrator if none exists, switches the release and starts Gunicorn/Nginx.
-9. Verifies the database health response, exact deployed commit, Nginx proxy and admin login page before reporting success.
+8. Stops central application writes, creates and checks a PostgreSQL backup, applies migrations, collects static assets, switches the release and starts Gunicorn/Nginx. New installations create the administrator through browser setup.
+9. Verifies the database health response, exact deployed commit, Nginx proxy and custom sign-in/setup page before reporting success.
 
 The first run can take longer while Python compiles. Package download, DNS, SSH or CI failures stop the deployment. A failed migration keeps the service stopped for diagnosis; the pipeline does not roll a database back over new data.
 
 ## Access after a successful build
 
-- BackOffice: **http://10.0.110.151/admin/**
-- Root URL redirects to BackOffice: **http://10.0.110.151/**
+- BackOffice: **http://10.0.110.151/**
 - Health/version: **http://10.0.110.151/healthz/**
 - Cashier server address: **http://10.0.110.151**
 
-On the server, retrieve the generated initial login:
+For a new installation, retrieve the setup key on the server:
 
 ```bash
-sudo cat /etc/pos-erp/initial-admin.env
+sudo cat /etc/pos-erp/setup.env
 ```
 
-It contains `DJANGO_SUPERUSER_USERNAME=admin` and a random password. Sign in, change that password, create the company/branch and employee accounts, then configure the POS. An existing administrator is never reset on deployment; this file is only the original bootstrap credential. Keep its contents out of Jenkins logs and GitHub.
+For a new installation, enter the `SIMPLEPOS_SETUP_TOKEN` value on the setup unlock page. Then enter Company Name (ENG), Company Name (GEO), Admin Email, Admin Username, Password and its confirmation. Company address/phone and administrator first/last names are optional. Setup creates one company and the administrator atomically; it cannot be claimed again. Sign in with those credentials and create branches, products and employee accounts. Keep the installation key out of Jenkins logs and GitHub.
+
+When upgrading an existing pilot that already has a company and active superuser, the migration marks setup complete and preserves all accounts and business data. Use the existing administrator credentials; if it was the original deployment-generated account, its original credentials are still in `/etc/pos-erp/initial-admin.env`. Complete the company details in **Company settings**. A database containing more than one company is rejected before applying the single-company constraint; it must be split deliberately, with no automatic deletion.
+
+`/admin/` now redirects to the custom BackOffice. Django's default model-editing pages are no longer routed. The deployment no longer calls `bootstrap_admin` or generates a new administrator password.
 
 For a different administrator or password recovery, use the interactive wrapper:
 

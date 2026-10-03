@@ -26,9 +26,13 @@ def main():
         from django.contrib.auth import get_user_model
         from commerce.models import EmployeeAccess, AccessPermission, LiveBasket, BasketCommand
         from commerce.supervision import request_removal
+        from commerce.enrollment import generate_code, review_request
+        from commerce.models import Installation, EnrollmentRequest
+        from django.utils import timezone
         from commerce.models import Company, Location, Product, Register, StockItem, StockAdjustment, Sale, StockMovement
         call_command("migrate", verbosity=0, interactive=False)
         company = Company.objects.create(code="e2e", name="Test market")
+        Installation.objects.update_or_create(pk=1, defaults={"completed_at": timezone.now()})
         branch = Location.objects.create(company=company, code="store", kind="branch", name="Store")
         product = Product.objects.create(company=company, home_location=branch, barcode="001", name="Milk", price_minor=450)
         stock = StockItem.objects.get(product=product, location=branch)
@@ -64,7 +68,15 @@ def main():
                     env={**os.environ, "TEST_ORIGIN": origin, "TEST_TOKEN": token, "TEST_PASSWORD": password, "TEST_LOCAL_DB": str(Path(directory) / "cashier.sqlite")})
                 try:
                     for line in client.stdout:
-                        if line.strip() == "REQUEST_REMOVAL":
+                        if line.strip() == "REQUEST_PAIRING":
+                            client.stdin.write(generate_code(branch, manager) + "\n")
+                            client.stdin.flush()
+                        elif line.strip() == "REQUEST_APPROVAL":
+                            pending = EnrollmentRequest.objects.get(status="pending")
+                            review_request(pending.pk, manager, True, branch)
+                            client.stdin.write("approved\n")
+                            client.stdin.flush()
+                        elif line.strip() == "REQUEST_REMOVAL":
                             snapshot = LiveBasket.objects.get(register=register)
                             import json
                             request_removal(manager, register.pk, snapshot.basket_id, snapshot.revision, json.loads(snapshot.lines_json)[0]["key"], "E2E supervisor removal")
@@ -79,7 +91,7 @@ def main():
                 assert StockMovement.objects.filter(reason="cash_sale").count() == 1, "Retries duplicated stock movement"
                 stock.refresh_from_db()
                 assert stock.quantity_milli == 8000, stock.quantity_milli
-                print("HTTP integration passed: enrollment + offline login + manager removal + offline restart + lost acknowledgement -> one sale and one stock deduction.")
+                print("HTTP integration passed: approval + pairing-code enrollment + legacy upgrade + offline login + manager removal + offline restart + lost acknowledgement -> one sale and one stock deduction.")
             finally:
                 server.terminate()
                 try: server.wait(timeout=10)

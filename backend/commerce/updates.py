@@ -22,7 +22,7 @@ def version_tuple(value):
     return tuple(map(int,value.split('.')))
 
 
-def import_release(manifest_file, signature_file, archive, actor):
+def import_release(manifest_file, signature_file, archive, actor, *, allow_existing=False):
     key = settings.SIMPLEPOS_RELEASE_PUBLIC_KEY
     if not key.is_file(): raise ValidationError('Install the trusted release public key on the server before importing releases. See the update setup instructions.')
     if manifest_file.size > 65536 or signature_file.size > 4096 or archive.size > 1073741824: raise ValidationError('Release files exceed their size limits.')
@@ -52,15 +52,24 @@ def import_release(manifest_file, signature_file, archive, actor):
         if digest.hexdigest()!=m['sha256']: raise ValidationError('Package checksum does not match the signed manifest.')
         with transaction.atomic():
             Installation.objects.select_for_update().get(pk=1)
-            if CashierRelease.objects.filter(platform=m['platform'],version=m['version']).exists(): raise ValidationError('This release version is already imported.')
+            existing_release = CashierRelease.objects.filter(platform=m['platform'],version=m['version']).first()
+            if existing_release:
+                if not allow_existing: raise ValidationError('This release version is already imported.')
+                if any(getattr(existing_release, field) != m[field] for field in ('filename', 'size', 'sha256')):
+                    raise ValidationError('A different package already uses this version. Publish a new version.')
             destination=root/m['version']
+            if existing_release and not destination.is_dir():
+                raise ValidationError('Existing version files are missing. Restore the original signed release files.')
             if destination.exists():
                 if (destination/'manifest.json').read_bytes()!=raw: raise ValidationError('A different package already uses this version. Publish a new version.')
+                if (destination/'manifest.sig').read_bytes().strip() != base64.b64encode(signature):
+                    raise ValidationError('Existing release signature is damaged. Restore the original signed release files.')
                 existing=hashlib.sha256()
                 with (destination/m['filename']).open('rb') as source:
                     for chunk in iter(lambda:source.read(1024*1024),b''): existing.update(chunk)
                 if existing.hexdigest()!=m['sha256']: raise ValidationError('Existing version files are damaged. Publish a new version.')
             else: os.rename(stage,destination)
+            if existing_release: return existing_release
             return CashierRelease.objects.create(version=m['version'],platform=m['platform'],filename=m['filename'],size=m['size'],sha256=m['sha256'],uploaded_by=actor)
 
 

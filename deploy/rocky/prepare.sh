@@ -14,7 +14,7 @@ if [[ ! -f /etc/pos-erp/backend.env && -f /etc/simplepos/backend.env ]]; then
 fi
 dnf install -y dnf-plugins-core
 dnf config-manager --set-enabled crb
-dnf install -y gcc make tar xz curl openssl-devel bzip2-devel libffi-devel zlib-devel xz-devel readline-devel sqlite-devel libuuid-devel libzstd-devel ncurses-devel nginx policycoreutils-python-utils util-linux sudo
+dnf install -y gcc make tar xz curl openssl openssl-devel bzip2-devel libffi-devel zlib-devel xz-devel readline-devel sqlite-devel libuuid-devel libzstd-devel ncurses-devel nginx policycoreutils-python-utils util-linux sudo
 case "$engine" in
  mysql) dnf install -y mariadb-connector-c-devel pkgconf-pkg-config ;;
  mssql)

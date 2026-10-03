@@ -30,7 +30,7 @@ class CompanyForm(forms.ModelForm):
     name_ka = forms.CharField(label='Company name (GEO)', max_length=150)
     class Meta:
         model = Company
-        fields = ['name','name_ka','address','phone','theme','advertisement']
+        fields = ['name','name_ka','address','phone','theme','advertisement','removal_notice_minutes']
         labels = {'name':'Company name (ENG)','advertisement':'Customer display welcome text'}
 
 class ScopedForm(forms.ModelForm):
@@ -106,7 +106,15 @@ class AdjustmentForm(forms.Form):
 class RegisterForm(forms.ModelForm):
     class Meta:
         model=Register
-        fields=['name','active']
+        fields=['location','name','code','active']
+        labels={'location':'Branch'}
+    def __init__(self,*args,company,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.fields['location'].queryset=Location.objects.filter(company=company,kind='branch',active=True).order_by('name')
+        if not self.instance._state.adding:
+            self.fields['location'].queryset=Location.objects.filter(company=company,kind='branch').order_by('name')
+            self.fields['location'].disabled=True
+            self.fields['code'].disabled=True
 
 class GroupForm(ScopedForm):
     class Meta:

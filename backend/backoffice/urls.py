@@ -16,6 +16,7 @@ urlpatterns = [
     path('sales/<uuid:identifier>/', views.sale, name='sale'),
     path('checkouts/', views.checkouts, name='checkouts'),
     path('checkouts/<uuid:identifier>/', views.checkout, name='checkout'),
+    path('registers/<uuid:identifier>/pair/', views.register_pair, name='register-pair'),
     path('enrollment/<uuid:identifier>/', views.review, name='review'),
     path('branches/<uuid:identifier>/pair/', views.pair, name='pair'),
     path('inventory/<uuid:identifier>/adjust/', views.adjust, name='adjust'),

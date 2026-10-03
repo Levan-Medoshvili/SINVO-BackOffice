@@ -38,10 +38,6 @@ def sign_in(request):
     branch_name = body.get("branch_name", "")
     if not isinstance(branch_name, str) or not branch_name.strip() or len(branch_name) > 150:
         return Response({"detail": "Configure the branch name first."}, status=400)
-    branches = Location.objects.filter(company=access.company, kind="branch", active=True).filter(Q(name__iexact=branch_name.strip()) | Q(code=branch_name.strip()))
-    if branches.count() != 1 or not branch_allowed(access, branches.first()):
-        return Response({"detail": "This branch is unavailable or is not assigned to your account. Ask the administrator to check its exact name/code."}, status=403)
-    branch = branches.get()
     try:
         installation_id = UUID(str(body.get("installation_id")))
         secret = body["installation_secret"]
@@ -50,6 +46,15 @@ def sign_in(request):
     except (ValueError, KeyError, TypeError):
         return Response({"detail": "Invalid installation identity."}, status=400)
     digest = hashlib.sha256(secret.encode()).hexdigest()
+    approved = DeviceEnrollment.objects.select_related("register").filter(pk=installation_id).first()
+    if approved:
+        if not hmac.compare_digest(approved.secret_hash, digest): return Response({"detail": "Device identity does not match."}, status=403)
+        branches = Location.objects.filter(pk=approved.register.location_id, company=access.company, kind="branch", active=True)
+    else:
+        branches = Location.objects.filter(company=access.company, kind="branch", active=True).filter(Q(name__iexact=branch_name.strip()) | Q(code=branch_name.strip()))
+    if branches.count() != 1 or not branch_allowed(access, branches.first()):
+        return Response({"detail": "This branch is unavailable or not assigned to your account."}, status=403)
+    branch = branches.get()
     with transaction.atomic():
         # Scope enrollment serialization to this branch; no client-selected company is trusted.
         Location.objects.select_for_update().get(pk=branch.pk)
@@ -69,7 +74,7 @@ def sign_in(request):
                 if register.location_id != branch.pk or DeviceEnrollment.objects.filter(register=register).exists():
                     return Response({"detail": "Existing register does not match this installation."}, status=403)
             else:
-                register = Register.objects.create(location=branch, code="pos-" + installation_id.hex, name="POS " + installation_id.hex[:6].upper())
+                return Response({"detail": "This POS needs BackOffice approval or a one-use pairing code before signing in.", "enrollment_required": True}, status=403)
             DeviceEnrollment.objects.create(installation_id=installation_id, register=register, secret_hash=digest, address_hint=hint, enrolled_by=user)
         credential = register.issue_token()
         session = CashierSession.objects.create(register=register, user=user, expires_at=timezone.now() + timedelta(days=settings.SIMPLEPOS_OFFLINE_LOGIN_DAYS))

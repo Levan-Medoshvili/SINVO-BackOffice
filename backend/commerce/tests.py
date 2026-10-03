@@ -114,15 +114,10 @@ class CheckoutTests(TestCase):
         self.assertEqual(Sale.objects.get().lines.get().unit_price_minor, 450)
         self.assertEqual(self.client.get("/api/v1/catalog/").json()["products"][0]["price_minor"], 500)
 
-    def test_other_company_cannot_read_or_sell_products(self):
-        other = Company.objects.create(name="Two", code="two")
-        location = Location.objects.create(company=other, code="store", name="Other", kind="branch")
-        register = Register.objects.create(location=location, code="r2", name="Other")
-        self.client.credentials(HTTP_AUTHORIZATION="Bearer " + register.issue_token())
-        self.assertEqual(self.client.get("/api/v1/catalog/").json()["products"], [])
-        self.assertEqual(self.send(self.payload())["status"], "rejected")
-        with self.assertRaises(ValidationError):
-            StockItem.objects.create(product=self.product, location=location)
+    def test_installation_rejects_second_company(self):
+        from django.db import IntegrityError, transaction
+        with self.assertRaises(IntegrityError), transaction.atomic():
+            Company.objects.create(name="Two", code="two")
 
     def test_other_branch_cannot_sell_unassigned_product(self):
         branch = Location.objects.create(company=self.company, code="another", name="Other", kind="branch")
@@ -148,7 +143,7 @@ class CheckoutTests(TestCase):
         self.assertEqual(self.client.get("/admin/").status_code, 302)
 
     def test_identity_changes_cannot_reassign_historical_stock_or_sales(self):
-        other = Company.objects.create(name="Other", code="other")
+        other = Company(name="Other", code="other")
         branch = Location.objects.create(company=self.company, code="branch2", name="Other branch", kind="branch")
         for obj, field, value in [(self.location, "company", other), (self.product, "unit", "kg"), (self.register, "location", branch), (self.stock, "location", branch)]:
             old = getattr(obj, field)

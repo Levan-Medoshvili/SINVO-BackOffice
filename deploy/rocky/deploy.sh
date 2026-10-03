@@ -50,7 +50,7 @@ test_manage() {
   "$release/.venv/bin/python" manage.py "$@"
 }
 test_manage makemigrations --check --dry-run
-test_manage test commerce --noinput
+test_manage test commerce backoffice --noinput
 manage() {
  systemd-run --quiet --wait --pipe --collect --uid=simplepos --gid=simplepos \
   --property=EnvironmentFile=/etc/pos-erp/backend.env --property="WorkingDirectory=$release/backend" \
@@ -78,17 +78,6 @@ fi
 if ! manage migrate --noinput || ! manage collectstatic --noinput; then
  echo 'Migration/static collection failed. Service remains stopped; inspect the backup and schema before recovery.' >&2; exit 1
 fi
-if [[ -f /etc/pos-erp/initial-admin.env ]]; then
- bootstrap_environment=$(mktemp /etc/pos-erp/bootstrap.XXXXXXXX.env)
- cat /etc/pos-erp/backend.env /etc/pos-erp/initial-admin.env > "$bootstrap_environment"
- bootstrap_status=0
- systemd-run --quiet --wait --pipe --collect --uid=simplepos --gid=simplepos \
-  --property="EnvironmentFile=$bootstrap_environment" \
-  --property="WorkingDirectory=$release/backend" --property=NoNewPrivileges=yes --setenv=PYTHONDONTWRITEBYTECODE=1 \
-  "$release/.venv/bin/python" manage.py bootstrap_admin || bootstrap_status=$?
- rm -- "$bootstrap_environment"
- [[ $bootstrap_status == 0 ]] || { echo 'Initial administrator setup failed.' >&2; exit 1; }
-fi
 printf 'SIMPLEPOS_BUILD_REVISION=%s\n' "$revision" > /etc/pos-erp/release.env
 next_link="/opt/pos-erp/current.$revision.$$"
 ln -s "$release" "$next_link"
@@ -106,7 +95,7 @@ if [[ $healthy != 1 ]]; then
  echo "Health verification failed. Previous code: ${previous:-none}. Database rollback is never automatic." >&2; exit 1
 fi
 curl --fail --silent --show-error --max-time 10 -H "Host: $server_ip" http://127.0.0.1/healthz/ | "$python" -c 'import json,sys; data=json.load(sys.stdin); assert data["status"] == "ok" and data.get("build_revision") == sys.argv[1]' "$revision"
-curl --fail --silent --show-error --max-time 10 -H "Host: $server_ip" http://127.0.0.1/admin/login/ >/dev/null
+curl --fail --silent --show-error --location --max-time 10 -H "Host: $server_ip" http://127.0.0.1/login/ >/dev/null
 echo "DEPLOYED_REVISION=$revision"
-echo "ERP is ready at http://$server_ip/admin/"
-echo 'Initial administrator: read /etc/pos-erp/initial-admin.env as root, then change the password in BackOffice.'
+echo "ERP is ready at http://$server_ip/"
+echo 'First setup: read /etc/pos-erp/setup.env as root, then create the company and administrator in the browser. Existing accounts are preserved.'

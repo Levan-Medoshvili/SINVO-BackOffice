@@ -4,7 +4,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
-from .models import StockItem
+from .models import StockItem, Installation, Company
 from .services import receive_sale, SaleRejected, SaleConflict
 
 
@@ -13,9 +13,11 @@ def health(request):
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
             cursor.fetchone()
+        installation = Installation.objects.filter(pk=1).first()
+        company = Company.objects.first()
     except DatabaseError:
         return JsonResponse({"status": "unavailable"}, status=503)
-    return JsonResponse({"status": "ok", "api_version": 1, "build_revision": settings.SIMPLEPOS_BUILD_REVISION})
+    return JsonResponse({"status": "ok", "api_version": 1, "build_revision": settings.SIMPLEPOS_BUILD_REVISION, "company_id": str(company.pk) if company else None, "installation_id": str(installation.public_id) if installation else None, "setup_complete": bool(installation and installation.completed_at), "enrollment_version": 1})
 
 
 @api_view(["GET"])

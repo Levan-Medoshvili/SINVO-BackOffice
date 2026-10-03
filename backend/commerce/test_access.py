@@ -1,11 +1,12 @@
 import uuid
+import hashlib
 from datetime import timedelta
 from django.test import TestCase, override_settings
 from django.contrib.auth import get_user_model
 from django.core.exceptions import PermissionDenied, ValidationError
 from django.utils import timezone
 from rest_framework.test import APIClient
-from .models import Company, Location, Product, Register, EmployeeAccess, AccessGroup, AccessPermission, DeviceEnrollment, LiveBasket
+from .models import Company, Location, Product, Register, EmployeeAccess, AccessGroup, AccessPermission, DeviceEnrollment, LiveBasket, Installation
 from .access import permission_codes
 from .forms import EmployeeAccessForm, AccessGroupForm
 from .supervision import request_removal
@@ -39,6 +40,7 @@ class EmployeeTests(TestCase):
         self.assertEqual(self.signin().status_code, 403)
 
     def test_login_checks_application_branch_and_active_status(self):
+        DeviceEnrollment.objects.create(installation_id=self.body["installation_id"], register=self.register, secret_hash=hashlib.sha256(self.body["installation_secret"].encode()).hexdigest(), enrolled_by=self.user)
         self.access.all_branches = False
         self.access.save()
         self.access.branches.add(self.other)
@@ -61,11 +63,11 @@ class EmployeeTests(TestCase):
         self.access.groups.add(group)
         self.access.permissions.add(AccessPermission.objects.get(pk="supervise_basket"))
         self.assertEqual(permission_codes(self.access), {"remove_basket_line", "supervise_basket"})
-        company = Company.objects.create(name="Foreign", code="foreign")
+        company = Company(name="Foreign", code="foreign")
         with self.assertRaises(ValidationError):
             group.company = company
             group.save()
-        branch = Location.objects.create(company=company, name="Secret branch", code="s", kind="branch")
+        branch = Location.objects.create(company=self.company, name="Warehouse", code="s", kind="warehouse")
         form = EmployeeAccessForm(data={"user": self.user.pk, "company": self.company.pk, "application": "cashier", "branches": [branch.pk]}, instance=self.access)
         self.assertFalse(form.is_valid())
         self.assertIn("branches", form.errors)
@@ -77,13 +79,12 @@ class EmployeeTests(TestCase):
         for _ in range(10): self.assertEqual(self.signin().status_code, 403)
         self.assertEqual(self.signin().status_code, 429)
 
-    def test_superuser_can_create_cashier_from_admin(self):
+    def test_superuser_can_create_cashier_from_backoffice(self):
         admin = get_user_model().objects.create_superuser(username="admin", password="test-password")
+        Installation.objects.update_or_create(pk=1, defaults={"completed_at": timezone.now()})
         self.client.force_login(admin)
-        response = self.client.get("/admin/users/user/add/")
-        self.assertEqual(response.status_code, 200)
-        self.assertContains(response, "Both")
-        response = self.client.post("/admin/users/user/add/", {"username": "new-cashier", "name": "New", "surname": "Employee", "password1": "Strong-test-password-842!", "password2": "Strong-test-password-842!", "pos_access-TOTAL_FORMS": "1", "pos_access-INITIAL_FORMS": "0", "pos_access-MIN_NUM_FORMS": "0", "pos_access-MAX_NUM_FORMS": "1", "pos_access-0-company": str(self.company.pk), "pos_access-0-application": "both", "pos_access-0-all_branches": "on", "_save": "Save"})
+        self.assertContains(self.client.get("/team/add/"), "Both")
+        response = self.client.post("/team/add/", {"username":"new-cashier", "name":"New", "surname":"Employee", "password":"Strong-test-password-842!", "password_confirm":"Strong-test-password-842!", "application":"both", "all_branches":"on", "is_active":"on"})
         self.assertEqual(response.status_code, 302)
         employee = get_user_model().objects.get(username="new-cashier")
         self.assertTrue(employee.check_password("Strong-test-password-842!"))
@@ -142,16 +143,17 @@ class SupervisionTests(TestCase):
         self.assertTrue(self.sync().json()["access_denied"])
         self.assertEqual(LiveBasket.objects.get().state, "locked")
     def test_admin_branch_scope_and_csrf(self):
+        Installation.objects.update_or_create(pk=1, defaults={"completed_at": timezone.now()})
         self.client.credentials()
         self.client.force_login(self.manager)
-        url = f"/admin/commerce/livebasket/{self.register.pk}/change/"
+        url = f"/checkouts/{self.register.pk}/"
         self.assertContains(self.client.get(url), "Milk")
-        self.assertEqual(self.client.get("/admin/users/user/").status_code, 403)
+        self.assertEqual(self.client.get("/team/").status_code, 403)
         self.manager.pos_access.branches.clear()
         self.assertEqual(self.client.get(url).status_code, 404)
         guarded = APIClient(enforce_csrf_checks=True)
         guarded.force_login(self.manager)
-        self.assertEqual(guarded.post(f"/admin/commerce/livebasket/{self.register.pk}/remove/", {}).status_code, 403)
+        self.assertEqual(guarded.post(f"/checkouts/{self.register.pk}/", {}).status_code, 403)
 
 
 class ReleaseDeliveryTests(TestCase):

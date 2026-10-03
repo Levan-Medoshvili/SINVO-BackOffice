@@ -55,7 +55,7 @@ git archive --format=tar.gz --output="artifacts/$revision.tar.gz" HEAD backend d
         success {
             script {
                 if (env.POS_DEPLOYED == 'true') {
-                    echo "ERP deployment and health checks succeeded: http://${params.TARGET_HOST ?: '10.0.110.151'}/admin/ . Initial login instructions are in docs/deployment.md."
+                    echo "ERP deployment and health checks succeeded: http://${params.TARGET_HOST ?: '10.0.110.151'}/ . First-start instructions are in docs/deployment.md."
                 } else {
                     echo 'Source checks succeeded. This build did not deploy; select the Production branch for server deployment.'
                 }

@@ -1,6 +1,6 @@
 # Cashier updates
 
-Status: the persistent v0.2 Cashier, Windows ZIP/NSIS and Linux AppImage targets, signed first-download starters and read-only release feed are implemented. See [installation and release publishing](cashier-access-and-installation.md). The shipped UI stores the future daily/manual check preference but does not perform in-app checks. Checkout-aware installation, required server schedules and rollout tracking below remain the next implementation phase. A starter's explicit maintenance download must be run with checkout closed; it is not the scheduled update coordinator.
+Status: v0.3 implements daily/manual signed release checks and **Update and restart**, gated on an empty basket, completed receipt handover, no printing/payment and no queued sales. The trusted starter verifies the complete archive, preserves the separate data directory and rejects downgrades. A ZIP alone does not configure release trust; see [installation and release publishing](cashier-access-and-installation.md). Branch-targeted required schedules, staged downloads during sales, rollout tracking and automatic rollback below remain planned. v0.2 requires one manual upgrade.
 
 ## Cashier preferences
 
@@ -58,4 +58,4 @@ Use one update coordinator and platform-specific packaging/install adapters. Ver
 - Unsent offline sales survive restart, failed installation and supported rollback with the same IDs, and later synchronize once.
 - Wrong platform, tampered package, insufficient disk, incompatible schema and interrupted download leave the previous working application available.
 
-The design exercises manual checks, downloading, busy-sale and receipt-handover waits, idle countdowns and branch targeting. The installed pilot now has durable sales/queue recovery; its starter tests verify manifest signatures, package digests, failed-download preservation and offline cached launch. The full scheduled-update service, updater maintenance lock, in-app release checks, native Windows starter execution and bank/printer coordination still require implementation or integration validation.
+The design exercises manual checks, downloading, busy-sale and receipt-handover waits, idle countdowns and branch targeting. The installed pilot now has durable sales/queue recovery; its starter tests verify manifest signatures, package digests, failed-download preservation and offline cached launch. The v0.3 updater adds an in-app maintenance lock and signed release checks. The full scheduled-update service, native Windows starter execution and bank/printer coordination still require implementation or integration validation.

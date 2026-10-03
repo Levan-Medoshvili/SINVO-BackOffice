@@ -17,7 +17,7 @@ AUTH_USER_MODEL = "users.User"
 INSTALLED_APPS = [
     "django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
     "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles",
-    "rest_framework", "users", "commerce",
+    "rest_framework", "users", "commerce", "backoffice",
 ]
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware", "whitenoise.middleware.WhiteNoiseMiddleware",
@@ -29,7 +29,7 @@ MIDDLEWARE = [
 ROOT_URLCONF = "config.urls"
 TEMPLATES = [{"BACKEND": "django.template.backends.django.DjangoTemplates", "DIRS": [BASE_DIR / "templates"], "APP_DIRS": True,
     "OPTIONS": {"context_processors": ["django.template.context_processors.request", "django.contrib.auth.context_processors.auth",
-        "django.contrib.messages.context_processors.messages", "django.template.context_processors.i18n"]}}]
+        "django.contrib.messages.context_processors.messages", "django.template.context_processors.i18n", "backoffice.access.shell"]}}]
 WSGI_APPLICATION = "config.wsgi.application"
 AUTH_PASSWORD_VALIDATORS = [{"NAME": "django.contrib.auth.password_validation." + name} for name in [
     "UserAttributeSimilarityValidator", "MinimumLengthValidator", "CommonPasswordValidator", "NumericPasswordValidator"]]
@@ -61,6 +61,8 @@ X_FRAME_OPTIONS = "DENY"
 SECURE_HSTS_SECONDS = int(os.environ.get("SIMPLEPOS_HSTS_SECONDS", "0"))
 SIMPLEPOS_BRAND = os.environ.get("SIMPLEPOS_BRAND", "SimplePOS")
 SIMPLEPOS_BUILD_REVISION = os.environ.get("SIMPLEPOS_BUILD_REVISION", "development")
+SIMPLEPOS_SETUP_TOKEN = os.environ.get("SIMPLEPOS_SETUP_TOKEN", "")
+LOGIN_URL = "/login/"
 
 SIMPLEPOS_OFFLINE_LOGIN_DAYS = int(os.environ.get("SIMPLEPOS_OFFLINE_LOGIN_DAYS", "7"))
 if not 1 <= SIMPLEPOS_OFFLINE_LOGIN_DAYS <= 30:

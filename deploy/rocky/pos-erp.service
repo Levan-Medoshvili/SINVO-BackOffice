@@ -9,6 +9,7 @@ User=simplepos
 Group=simplepos
 WorkingDirectory=/opt/pos-erp/current/backend
 EnvironmentFile=/etc/pos-erp/backend.env
+EnvironmentFile=-/etc/pos-erp/setup.env
 EnvironmentFile=-/etc/pos-erp/release.env
 Environment=PYTHONUNBUFFERED=1
 Environment=PYTHONDONTWRITEBYTECODE=1

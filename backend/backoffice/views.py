@@ -159,7 +159,8 @@ def section_info(request, section):
     else:
         query = model.objects.filter(company=request.company)
     if kind: query = query.filter(kind=kind)
-    if section == 'products': query = query.select_related('category', 'home_location')
+    if section == 'products': query = query.select_related('category', 'subcategory')
+    if section == 'categories': query = query.select_related('parent')
     return model, form, title, kind, query
 
 
@@ -177,20 +178,20 @@ def listing(request, section):
         query = query.filter(condition)
     page = Paginator(query.order_by('product__name', 'location__name') if section == 'stock' else query.order_by('name'), 25).get_page(request.GET.get('page'))
     columns = {'branches': ['Branch', 'Code', 'Address', 'Status'], 'warehouses': ['Warehouse', 'Code', 'Address', 'Status'],
-        'products': ['Product', 'Barcode', 'Category', 'Price', 'Status'], 'categories': ['Category', 'Georgian name'],
+        'products': ['Product', 'Barcode', 'Category', 'Sub-category', 'Unit', 'Price', 'Status'], 'categories': ['Category / Sub-category', 'Georgian name', 'Parent category'],
         'stock': ['Product', 'Location', 'Quantity', 'Status'], 'groups': ['Group', 'Permissions'],
         'registers': ['POS terminal', 'Branch', 'Last seen', 'Status']}[section]
     rows = []
     for item in page:
         active = getattr(item, 'active', getattr(item, 'enabled', True))
         if kind: cells = [item.name, item.code, item.address or '—', 'Active' if active else 'Archived']
-        elif section == 'products': cells = [item.name, item.barcode, item.category.name if item.category else '—', money(item.price_minor), 'Active' if active else 'Archived']
-        elif section == 'categories': cells = [item.name, item.name_ka or '—']
+        elif section == 'products': cells = [item.name, item.barcode, item.category.name if item.category else '—', item.subcategory.name if item.subcategory else '—', item.get_unit_display(), money(item.price_minor), 'Active' if active else 'Archived']
+        elif section == 'categories': cells = [item.name, item.name_ka or '—', item.parent.name if item.parent else 'Top-level category']
         elif section == 'stock': cells = [item.product.name, item.location.name, f'{Decimal(item.quantity_milli)/1000:g} {item.product.get_unit_display()}', 'Active' if active else 'Disabled']
         elif section == 'groups': cells = [item.name, ', '.join(item.permissions.values_list('name', flat=True)) or '—']
         else: cells = [item.name, item.location.name, timezone.localtime(item.last_seen).strftime('%d %b %H:%M') if item.last_seen else 'Not connected yet', 'Active' if active else 'Disabled']
         rows.append({'id': item.pk, 'cells': cells, 'active': active, 'can_pair': section == 'registers' and active and not item.token_hash and not hasattr(item, 'deviceenrollment')})
-    context = {'nav': section, 'section': section, 'title': title, 'columns': columns, 'rows': rows, 'page': page, 'q': search, 'can_add': True}
+    context = {'nav': section, 'section': section, 'title': title, 'columns': columns, 'rows': rows, 'page': page, 'q': search, 'can_add': section != 'stock'}
     if section == 'branches':
         context.update(pending=EnrollmentRequest.objects.filter(status='pending', expires_at__gt=timezone.now()).order_by('created_at')[:100],
             available_branches=Location.objects.filter(company=request.company, kind='branch', active=True).order_by('name'))
@@ -200,6 +201,7 @@ def listing(request, section):
 @backoffice()
 def edit(request, section, identifier=None):
     model, form_class, title, kind, query = section_info(request, section)
+    if section == 'stock' and identifier is None: return redirect('backoffice:waybills')
     item = get_object_or_404(query, pk=identifier) if identifier else model()
     if kind: item.kind = kind
     kwargs = {'instance': item}
@@ -218,7 +220,9 @@ def edit(request, section, identifier=None):
             messages.success(request, 'Changes saved.')
             return redirect('backoffice:list', section=section)
     return render(request, 'backoffice/form.html', {'nav': section, 'title': ('Edit ' if identifier else 'Add ') + title.lower(), 'form': form,
-        'back_url': 'backoffice:list', 'section': section, 'delete_id': identifier if section in {'categories', 'groups'} else None})
+        'back_url': 'backoffice:list', 'section': section, 'terminal': item if section == 'registers' and identifier else None,
+        'subtitle': 'Products are saved to the catalog. Receive RS.ge waybills to assign stock to a branch or warehouse.' if section == 'products' else '',
+        'delete_id': identifier if section in {'categories', 'groups'} else None})
 
 
 @require_POST
@@ -288,6 +292,9 @@ def company_settings(request):
 @backoffice()
 @sensitive_post_parameters()
 def password(request):
+    if hasattr(request.user, 'directory_identity'):
+        messages.info(request, 'Your password is managed by Active Directory. Change it through your company directory.')
+        return redirect('backoffice:dashboard')
     form = PasswordChangeForm(request.user, request.POST or None)
     if request.method == 'POST' and form.is_valid():
         update_session_auth_hash(request, form.save())

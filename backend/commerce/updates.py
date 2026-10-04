@@ -82,8 +82,15 @@ def update_poll(request):
         if data['platform'] not in {'win-x64','linux-x64'} or type(data.get('updater_ready')) is not bool: raise ValueError()
     except (ValueError,KeyError,TypeError): return Response({'detail':'Invalid update report.'},status=400)
     register=request.auth
+    info = None
+    if 'system_info' in data:
+        from .system_info import sanitize
+        try: info = sanitize(data['system_info'])
+        except ValidationError: return Response({'detail':'Invalid system information.'},status=400)
     with transaction.atomic():
         type(register).objects.select_for_update().get(pk=register.pk)
+        if info is not None:
+            type(register).objects.filter(pk=register.pk).update(system_info=info, system_info_at=timezone.now())
         CashierDeviceStatus.objects.update_or_create(register=register,defaults={'version':data['version'],'platform':data['platform'],'updater_ready':data['updater_ready']})
         delivery=UpdateDelivery.objects.select_related('rollout__release').filter(register=register,
             rollout__starts_at__lte=timezone.now(),rollout__release__platform=data['platform']).order_by('-rollout__created_at').first()
@@ -92,7 +99,7 @@ def update_poll(request):
         delivery.reported_version=data['version']; delivery.reported_at=timezone.now()
         installed=version_tuple(data['version'])>=version_tuple(release.version)
         if installed: delivery.status='installed'; delivery.detail='POS reports this version or newer.'
-        elif not data['updater_ready']: delivery.status='error'; delivery.detail='Run the trusted v0.4+ starter once to enable managed updates.'
+        elif not data['updater_ready']: delivery.status='error'; delivery.detail='Install the current publisher-provided Cashier package once to enable automatic updates.'
         elif str(delivery.pk)==str(data.get('delivery_id')) and data.get('status') in {'waiting','installing','error'}:
             delivery.status=data['status']; delivery.detail=str(data.get('detail',''))[:250]
         elif delivery.status not in {'installing','error'}: delivery.status='waiting'; delivery.detail='Update offered; waiting for an idle checkout.'

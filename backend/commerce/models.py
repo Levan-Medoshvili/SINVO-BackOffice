@@ -62,23 +62,34 @@ class Category(Entity):
     company = models.ForeignKey(Company, on_delete=models.PROTECT)
     name = models.CharField(max_length=100)
     name_ka = models.CharField(max_length=100, blank=True)
+    parent = models.ForeignKey('self', null=True, blank=True, on_delete=models.PROTECT, related_name='subcategories')
     def clean(self):
+        if self.parent_id:
+            if self.parent_id == self.pk or self.parent.company_id != self.company_id or self.parent.parent_id:
+                raise ValidationError({'parent': 'Choose a top-level category from this company.'})
+            if not self._state.adding and (self.subcategories.exists() or self.product_set.exists()):
+                raise ValidationError({'parent': 'A category with products or subcategories must remain a top-level category.'})
+        if not self._state.adding and Category.objects.get(pk=self.pk).parent_id != self.parent_id and self.subcategory_products.exists():
+            raise ValidationError({'parent': 'This subcategory is used by products. Update those products before changing its parent.'})
+        if Category.objects.filter(company_id=self.company_id, parent_id=self.parent_id, name__iexact=self.name).exclude(pk=self.pk).exists():
+            raise ValidationError({'name': 'This category already exists under the selected parent.'})
         if not self._state.adding and Category.objects.get(pk=self.pk).company_id != self.company_id:
             raise ValidationError("An existing category cannot move to another company.")
     def save(self, *args, **kwargs):
         self.full_clean()
         super().save(*args, **kwargs)
-    def __str__(self): return self.name
+    def __str__(self): return f'{self.parent.name} / {self.name}' if self.parent_id else self.name
 
 
 class Product(Entity):
     company = models.ForeignKey(Company, on_delete=models.PROTECT)
-    home_location = models.ForeignKey(Location, on_delete=models.PROTECT, help_text="Initial branch or warehouse; additional locations use stock assignments.")
+    home_location = models.ForeignKey(Location, null=True, blank=True, editable=False, on_delete=models.PROTECT, help_text="Legacy initial location. New stock is assigned when receiving waybills.")
     category = models.ForeignKey(Category, null=True, blank=True, on_delete=models.PROTECT)
+    subcategory = models.ForeignKey(Category, null=True, blank=True, on_delete=models.PROTECT, related_name='subcategory_products')
     barcode = models.CharField(max_length=100)
     name = models.CharField(max_length=200)
     name_ka = models.CharField(max_length=200, blank=True)
-    unit = models.CharField(max_length=8, choices=[("piece", "Piece"), ("kg", "Kilogram")], default="piece")
+    unit = models.CharField(max_length=8, choices=[("piece", "Piece"), ("kg", "Kilogram"), ("liter", "Liter")], default="piece")
     price_minor = models.PositiveBigIntegerField(validators=[MaxValueValidator(100000000)], help_text="Retail price in tetri: 450 = ₾4.50. Includes any configured tax.")
     current_price = models.ForeignKey("PriceRevision", null=True, blank=True, editable=False, on_delete=models.PROTECT, related_name="current_for")
     active = models.BooleanField(default=True)
@@ -89,6 +100,10 @@ class Product(Entity):
             raise ValidationError({"home_location": "Location must belong to the product's company."})
         if self.category_id and self.category.company_id != self.company_id:
             raise ValidationError({"category": "Category must belong to the product's company."})
+        if self.category_id and self.category.parent_id:
+            raise ValidationError({'category': 'Choose a top-level category.'})
+        if self.subcategory_id and (not self.category_id or self.subcategory.parent_id != self.category_id or self.subcategory.company_id != self.company_id):
+            raise ValidationError({'subcategory': 'Choose a subcategory belonging to the selected category.'})
         if self.pk and not self._state.adding:
             old = Product.objects.get(pk=self.pk)
             if (old.company_id, old.unit) != (self.company_id, self.unit):
@@ -104,7 +119,6 @@ class Product(Entity):
                 revision = PriceRevision.objects.create(product=self, price_minor=self.price_minor)
                 Product.objects.filter(pk=self.pk).update(current_price=revision)
                 self.current_price = revision
-            StockItem.objects.get_or_create(product=self, location=self.home_location)
     def __str__(self): return self.name
 
 
@@ -145,6 +159,8 @@ class Register(Entity):
     active = models.BooleanField(default=True)
     token_hash = models.CharField(max_length=64, blank=True, editable=False)
     last_seen = models.DateTimeField(null=True, blank=True, editable=False)
+    system_info = models.JSONField(default=dict, blank=True, editable=False)
+    system_info_at = models.DateTimeField(null=True, blank=True, editable=False)
     class Meta:
         constraints = [models.UniqueConstraint(fields=["location", "code"], name="pos_register_location_code")]
     def clean(self):
@@ -161,6 +177,52 @@ class Register(Entity):
         self.save(update_fields=["token_hash"])
         return f"{self.id}.{secret}"
     def __str__(self): return f"{self.location} / {self.name}"
+
+
+class RSIntegration(models.Model):
+    company = models.OneToOneField(Company, primary_key=True, on_delete=models.PROTECT)
+    enabled = models.BooleanField(default=False)
+    buyer_tin = models.CharField(max_length=20)
+    service_user = models.CharField(max_length=150)
+    password_encrypted = models.TextField(blank=True)
+    checked_at = models.DateTimeField(null=True, blank=True)
+
+
+class DirectoryIntegration(models.Model):
+    company = models.OneToOneField(Company, primary_key=True, on_delete=models.PROTECT)
+    enabled = models.BooleanField(default=False)
+    host = models.CharField(max_length=253)
+    port = models.PositiveIntegerField(default=636, validators=[MinValueValidator(1), MaxValueValidator(65535)])
+    base_dn = models.CharField(max_length=500)
+    bind_user = models.CharField(max_length=250)
+    password_encrypted = models.TextField(blank=True)
+    ca_certificate = models.TextField(blank=True)
+    checked_at = models.DateTimeField(null=True, blank=True)
+
+
+class DirectoryIdentity(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, primary_key=True, related_name='directory_identity', on_delete=models.CASCADE)
+    integration = models.ForeignKey(DirectoryIntegration, on_delete=models.PROTECT)
+    object_guid = models.UUIDField()
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['integration', 'object_guid'], name='pos_directory_guid')]
+
+
+class ReceivedWaybill(Entity):
+    company = models.ForeignKey(Company, on_delete=models.PROTECT)
+    external_id = models.CharField(max_length=30)
+    number = models.CharField(max_length=100, blank=True)
+    service_user = models.CharField(max_length=150)
+    source_xml = models.TextField()
+    source_hash = models.CharField(max_length=64)
+    source_data = models.JSONField(default=dict)
+    fetched_at = models.DateTimeField(auto_now=True)
+    location = models.ForeignKey(Location, null=True, blank=True, on_delete=models.PROTECT)
+    received_at = models.DateTimeField(null=True, blank=True)
+    received_by = models.ForeignKey(settings.AUTH_USER_MODEL, null=True, blank=True, on_delete=models.PROTECT)
+    receipt_lines = models.JSONField(default=list)
+    class Meta:
+        constraints = [models.UniqueConstraint(fields=['company', 'external_id'], name='pos_received_waybill')]
 
 
 class Sale(Entity):

@@ -47,38 +47,33 @@ class LocationForm(ScopedForm):
 class CategoryForm(ScopedForm):
     class Meta:
         model = Category
-        fields = ['name','name_ka']
+        fields = ['name','name_ka','parent']
+        labels = {'parent': 'Parent category'}
+        help_texts = {'parent': 'Leave empty for a category. Choose a parent to create a subcategory.'}
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.fields['parent'].queryset = Category.objects.filter(company=self.company,parent__isnull=True).exclude(pk=self.instance.pk).order_by('name')
 
 class ProductForm(ScopedForm):
     price = forms.DecimalField(label='Selling price (GEL)',max_digits=9,decimal_places=2,min_value=0,max_value=1000000)
-    opening_quantity = forms.DecimalField(label='Opening quantity',max_digits=10,decimal_places=3,min_value=0,max_value=1000000,required=False,initial=0)
     class Meta:
         model = Product
-        fields = ['name','name_ka','barcode','category','home_location','unit','price','opening_quantity','active']
-        labels = {'home_location':'Initial branch or warehouse','name_ka':'Product name (GEO)'}
+        fields = ['name','name_ka','barcode','category','subcategory','unit','price','active']
+        labels = {'name_ka':'Product name (GEO)', 'subcategory':'Sub-category'}
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
-        self.fields['home_location'].queryset = Location.objects.filter(company=self.company,active=True).order_by('name')
-        self.fields['category'].queryset = Category.objects.filter(company=self.company).order_by('name')
+        self.fields['category'].queryset = Category.objects.filter(company=self.company,parent__isnull=True).order_by('name')
+        self.fields['subcategory'].queryset = Category.objects.filter(company=self.company,parent__isnull=False).select_related('parent').order_by('parent__name','name')
         if not self.instance._state.adding:
-            self.fields.pop('opening_quantity')
             self.fields['unit'].disabled = True
             self.fields['price'].initial = Decimal(self.instance.price_minor)/100
-            self.fields['home_location'].queryset = Location.objects.filter(company=self.company).order_by('name')
     def clean(self):
         data = super().clean()
         if data.get('price') is not None: self.instance.price_minor = int(data['price']*100)
-        quantity = data.get('opening_quantity') or Decimal(0)
-        if data.get('unit')=='piece' and quantity!=quantity.to_integral_value(): self.add_error('opening_quantity','Piece quantities must be whole numbers.')
         return data
     @transaction.atomic
     def save_for(self,actor):
-        new = self.instance._state.adding
-        item = super().save()
-        quantity = self.cleaned_data.get('opening_quantity') or Decimal(0)
-        if new and quantity:
-            StockAdjustment.objects.create(stock_item=StockItem.objects.get(product=item,location=item.home_location),quantity_milli=int(quantity*1000),reason='Opening stock',actor=actor)
-        return item
+        return super().save()
 
 class AssignmentForm(ScopedForm):
     class Meta:
@@ -145,6 +140,11 @@ class EmployeeForm(forms.Form):
         super().__init__(*args,**kwargs)
         self.fields['branches'].queryset=Location.objects.filter(company=company,kind='branch',active=True).order_by('name')
         self.fields['groups'].queryset=AccessGroup.objects.filter(company=company).order_by('name')
+        self.directory_user = bool(user and hasattr(user, 'directory_identity'))
+        if self.directory_user:
+            self.fields['username'].disabled = True
+            self.fields.pop('password')
+            self.fields.pop('password_confirm')
     def clean(self):
         data=super().clean()
         if not self.user and not data.get('password'): self.add_error('password','Enter a password for the new user.')

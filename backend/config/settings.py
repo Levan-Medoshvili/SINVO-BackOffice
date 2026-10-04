@@ -14,6 +14,7 @@ CSRF_TRUSTED_ORIGINS = [v.strip() for v in os.environ.get("SIMPLEPOS_CSRF_ORIGIN
 DATA_DIR = Path(os.environ.get("SIMPLEPOS_DATA_DIR", BASE_DIR / "var"))
 DATABASES = {"default": database_config(os.environ, DATA_DIR)}
 AUTH_USER_MODEL = "users.User"
+AUTHENTICATION_BACKENDS = ['commerce.directory.LocalBackend', 'commerce.directory.DirectoryBackend']
 INSTALLED_APPS = [
     "django.contrib.admin", "django.contrib.auth", "django.contrib.contenttypes",
     "django.contrib.sessions", "django.contrib.messages", "django.contrib.staticfiles",

@@ -29,5 +29,5 @@ def branches_for(user, company):
     return branches if access and access.all_branches else branches.filter(employeeaccess=access)
 
 def shell(request):
-    permissions = {code: allowed(request.user, code) for code in ['manage_catalog','manage_locations','manage_users','manage_inventory','view_reports','supervise_basket','manage_advertisements','manage_updates']} if request.user.is_authenticated else {}
+    permissions = {code: allowed(request.user, code) for code in ['manage_catalog','manage_locations','manage_users','manage_inventory','view_reports','supervise_basket','manage_advertisements','manage_updates','manage_integrations']} if request.user.is_authenticated else {}
     return {'brand': settings.SIMPLEPOS_BRAND, 'company': getattr(request, 'company', None), 'access_flags': permissions}

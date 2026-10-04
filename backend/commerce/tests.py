@@ -41,7 +41,7 @@ class CheckoutTests(TestCase):
         self.company = Company.objects.create(name="One", code="one")
         self.location = Location.objects.create(company=self.company, code="store", name="Store", kind="branch")
         self.product = Product.objects.create(company=self.company, home_location=self.location, name="Milk", barcode="001", price_minor=450)
-        self.stock = StockItem.objects.get(product=self.product, location=self.location)
+        self.stock = StockItem.objects.create(product=self.product, location=self.location)
         StockAdjustment.objects.create(stock_item=self.stock, quantity_milli=10000, reason="Opening")
         self.register = Register.objects.create(location=self.location, code="r1", name="Register")
         self.user, self.access, self.operator = make_operator(self.register)
@@ -164,6 +164,7 @@ class ConcurrentCheckoutTests(TransactionTestCase):
         company = Company.objects.create(name="Concurrency", code="concurrency")
         location = Location.objects.create(company=company, code="s", kind="branch", name="Store")
         product = Product.objects.create(company=company, home_location=location, name="Milk", barcode="001", price_minor=450)
+        StockItem.objects.create(product=product, location=location)
         register = Register.objects.create(location=location, code="r", name="POS")
         _, _, operator = make_operator(register)
         payload = {"id": str(uuid.uuid4()), "cashier_authorization": operator["authorization"], "occurred_at": timezone.now().isoformat(), "currency": "GEL", "payment_method": "cash",

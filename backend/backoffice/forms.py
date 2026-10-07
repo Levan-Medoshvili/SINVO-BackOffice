@@ -54,12 +54,21 @@ class CategoryForm(ScopedForm):
         super().__init__(*args,**kwargs)
         self.fields['parent'].queryset = Category.objects.filter(company=self.company,parent__isnull=True).exclude(pk=self.instance.pk).order_by('name')
 
+class SubcategorySelect(forms.Select):
+    def create_option(self, name, value, label, selected, index, subindex=None, attrs=None):
+        option = super().create_option(name, value, label, selected, index, subindex, attrs)
+        if value and hasattr(value, 'instance'):
+            option['attrs']['data-parent'] = str(value.instance.parent_id)
+        return option
+
+
 class ProductForm(ScopedForm):
     price = forms.DecimalField(label='Selling price (GEL)',max_digits=9,decimal_places=2,min_value=0,max_value=1000000)
     class Meta:
         model = Product
         fields = ['name','name_ka','barcode','category','subcategory','unit','price','active']
         labels = {'name_ka':'Product name (GEO)', 'subcategory':'Sub-category'}
+        widgets = {'subcategory': SubcategorySelect}
     def __init__(self,*args,**kwargs):
         super().__init__(*args,**kwargs)
         self.fields['category'].queryset = Category.objects.filter(company=self.company,parent__isnull=True).order_by('name')

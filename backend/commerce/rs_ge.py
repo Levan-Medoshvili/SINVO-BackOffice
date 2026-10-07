@@ -72,6 +72,7 @@ class RSClient:
             delivery_date_s=None, delivery_date_e=None, full_amount=None, waybill_number='', close_date_s=None,
             close_date_e=None, s_user_ids='', comment='', is_confirmed=confirmed)
         root = self.call('get_buyer_waybills_ex', values)
+        if local(root.tag) != 'WAYBILL_LIST': raise ValidationError('RS.ge did not return an incoming waybill list.')
         return [children(node) for node in root.iter() if local(node.tag) == 'WAYBILL'][:200]
 
     def detail(self, identifier):
@@ -100,6 +101,10 @@ def stage(config, identifier):
     client = RSClient(config)
     source, data = client.detail(identifier)
     digest = hashlib.sha256(source.encode()).hexdigest()
+    units = client.call('get_waybill_units')
+    names = {children(node).get('ID'): children(node).get('NAME', '') for node in units if local(node.tag) == 'WAYBILL_UNIT'}
+    for row in data['goods']:
+        row['DISPLAY_UNIT'] = row.get('UNIT_TXT') or names.get(row.get('UNIT_ID')) or ('RS unit ' + row.get('UNIT_ID', '?'))
     with transaction.atomic():
         Installation.objects.select_for_update().get(pk=1)
         item = ReceivedWaybill.objects.filter(company=config.company, external_id=str(identifier)).first()
@@ -107,10 +112,6 @@ def stage(config, identifier):
             if item.source_hash != digest: raise ValidationError('This received waybill changed in RS.ge. Review the original receipt and post an audited stock correction; it will not be received twice.')
             return item
         item = item or ReceivedWaybill(company=config.company, external_id=str(identifier))
-        units = client.call('get_waybill_units')
-        names = {children(node).get('ID'): children(node).get('NAME', '') for node in units if local(node.tag) == 'WAYBILL_UNIT'}
-        for row in data['goods']:
-            row['DISPLAY_UNIT'] = row.get('UNIT_TXT') or names.get(row.get('UNIT_ID')) or ('RS unit ' + row.get('UNIT_ID', '?'))
         item.number = data['fields'].get('WAYBILL_NUMBER', '')[:100]
         item.source_xml, item.source_hash, item.source_data, item.service_user = source, digest, data, config.service_user
         item.save()

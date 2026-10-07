@@ -21,6 +21,8 @@ html[data-appearance=dark] .field input:not([type=checkbox]),html[data-appearanc
 html[data-appearance=dark] .primary,html[data-appearance=dark] .brand-mark{background:#26735e;color:#fff}html[data-appearance=dark] .primary:hover{background:#328068}
 html[data-appearance=dark] .subtle{background:#21343c;color:#deebe8;border-color:var(--line)}html[data-appearance=dark] .subtle:hover,html[data-appearance=dark] .nav-item:hover,html[data-appearance=dark] tbody tr:hover{background:#29414a}
 html[data-appearance=dark] th,html[data-appearance=dark] .avatar,html[data-appearance=dark] .branch-icon,html[data-appearance=dark] .badge.muted,html[data-appearance=dark] .field input:disabled{background:#22353d;color:#bacbd0}
+html[data-appearance=dark] td{color:#ccdbda;border-color:var(--line)}html[data-appearance=dark] .cell-title{color:#e3eeeb}html[data-appearance=dark] .cell-title:hover{color:var(--accent)}
+html[data-appearance=dark] .cell-sub,html[data-appearance=dark] .card-note,html[data-appearance=dark] .device-id,html[data-appearance=dark] .branch-item small{color:var(--muted)}html[data-appearance=dark] .card-note,html[data-appearance=dark] .branch-item{border-color:var(--line)}
 html[data-appearance=dark] .auth-story,html[data-appearance=dark] .getting-started{background:linear-gradient(130deg,#213d34,#21333b);border-color:#344c42;color:#d8eee3}
 html[data-appearance=dark] .story-cards>div{background:#273f39;border-color:#425a50}
 html[data-appearance=dark] .nav-item,html[data-appearance=dark] .language select,html[data-appearance=dark] .topbar-left strong,html[data-appearance=dark] .field label,html[data-appearance=dark] .icon-button{color:#bdcecc}

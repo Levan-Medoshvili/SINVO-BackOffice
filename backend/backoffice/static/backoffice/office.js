@@ -1,4 +1,19 @@
 'use strict';
+const category = document.querySelector('#id_category');
+const subcategory = document.querySelector('#id_subcategory');
+if (category && subcategory) {
+  function filterSubcategories() {
+    for (const option of subcategory.options) {
+      const available = !option.value || option.dataset.parent === category.value;
+      option.hidden = !available; option.disabled = !available;
+    }
+  }
+  filterSubcategories();
+  category.addEventListener('change', () => {
+    filterSubcategories();
+    if (subcategory.selectedOptions[0]?.disabled) subcategory.value = '';
+  });
+}
 const menu = document.querySelector('[data-menu]');
 const sidebar = document.querySelector('#sidebar');
 const scrim = document.querySelector('[data-close-menu]');

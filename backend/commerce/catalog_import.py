@@ -31,7 +31,10 @@ def parse_upload(upload, kind):
     suffix = Path(upload.name).suffix.lower()
     try:
         if suffix == '.csv':
-            table = list(csv.reader(io.StringIO(raw.decode('utf-8-sig')), strict=True))
+            table = []
+            for row in csv.reader(io.StringIO(raw.decode('utf-8-sig')), strict=True):
+                if len(table) >= MAX_ROWS + 1 or len(row) > 30: raise ValidationError('Use at most 5,000 rows and 30 columns.')
+                table.append(row)
         elif suffix == '.xlsx':
             import openpyxl
             with zipfile.ZipFile(io.BytesIO(raw)) as archive:

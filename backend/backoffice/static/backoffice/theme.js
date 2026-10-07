@@ -7,7 +7,7 @@
   function apply() { document.documentElement.dataset.appearance = preference === 'system' ? (system.matches ? 'dark' : 'light') : preference; }
   apply();
   system.addEventListener('change', apply);
-  document.addEventListener('DOMContentLoaded', () => document.querySelectorAll('[data-appearance]').forEach(select => {
+  document.addEventListener('DOMContentLoaded', () => document.querySelectorAll('select[data-appearance]').forEach(select => {
     select.value = preference;
     select.addEventListener('change', () => {
       preference = select.value;

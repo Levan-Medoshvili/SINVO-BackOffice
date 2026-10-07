@@ -25,7 +25,11 @@ def catalog(request):
     register = request.auth
     company = register.location.company
     rows = StockItem.objects.filter(location=register.location, enabled=True, product__active=True,
-        product__company=company).select_related("product__current_price", "product__category").order_by("product__name", "product_id")
+        product__company=company).select_related("product__current_price", "product__category", "product__subcategory").order_by("product__name", "product_id")
+    # Older Cashiers reject unknown units for the entire catalog. Keep them usable
+    # during a staged rollout; v0.5 declares liter support explicitly.
+    if 'liter' not in request.query_params.get('units', '').split(','):
+        rows = rows.exclude(product__unit='liter')
     products = []
     for stock in rows:
         p = stock.product
@@ -33,6 +37,7 @@ def catalog(request):
             continue
         products.append({"id": str(p.pk), "barcode": p.barcode, "name": p.name, "name_ka": p.name_ka,
             "category": p.category.name if p.category else "", "category_ka": p.category.name_ka if p.category else "",
+            "subcategory": p.subcategory.name if p.subcategory else "", "subcategory_ka": p.subcategory.name_ka if p.subcategory else "",
             "unit": p.unit, "price_minor": p.current_price.price_minor, "price_id": str(p.current_price_id)})
     from .advertisements import playlist
     return Response({"advertisements":playlist(register.location), "api_version": 1, "generated_at": timezone.now().isoformat(), "brand": settings.SIMPLEPOS_BRAND,

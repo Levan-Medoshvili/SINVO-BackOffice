@@ -1,6 +1,6 @@
 # RS.ge waybill field research
 
-Reviewed 2026-10-01 against the three documents supplied by the project owner. This is a receiving-integration design; the application does not yet import live documents.
+Reviewed 2026-10-01 against the three documents supplied by the project owner. This research informed the receiving integration implemented in [SimplePOS v0.5](v0.5.md#rsge-receiving). The implementation can fetch and receive incoming waybills; live account acceptance still requires the company's configured service credentials and authorized documents. The proposed storage names and future synchronization design below are research notes, not the implemented schema.
 
 ## Official sources and confidence
 

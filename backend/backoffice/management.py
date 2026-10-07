@@ -51,7 +51,7 @@ def updates(request):
                 return redirect('backoffice:rollout',identifier=rollout.pk)
     history=UpdateRollout.objects.filter(company=request.company).select_related('release','created_by').order_by('-created_at')
     devices=Register.objects.filter(location__company=request.company).select_related('location','cashierdevicestatus').order_by('location__name','name')
-    return render(request,'backoffice/updates.html',{'nav':'updates','form':form,'rollouts':history[:30],'devices':devices,'key_ready':settings.SIMPLEPOS_RELEASE_PUBLIC_KEY.is_file(),'release_count':CashierRelease.objects.count()})
+    return render(request,'backoffice/updates.html',{'nav':'updates','form':form,'rollouts':history[:30],'devices':devices,'key_ready':settings.SIMPLEPOS_RELEASE_PUBLIC_KEY.is_file(),'release_count':CashierRelease.objects.count(),'releases':CashierRelease.objects.order_by('-created_at')[:30]})
 
 @backoffice('manage_updates')
 def release_import(request):

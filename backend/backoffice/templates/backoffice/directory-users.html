@@ -1,0 +1,4 @@
+{% extends 'backoffice/base.html' %}{% block title %}Add AD user{% endblock %}{% block content %}
+<div class="page-heading"><div><h1>Add Active Directory user</h1><p>Search by exact username or user@domain. Access is assigned on the next page.</p></div><a class="button subtle" href="{% url 'backoffice:users' %}">Users</a></div>
+<section class="card padded"><form method="post" class="search-form">{% csrf_token %}<label for="directory-username">AD username</label><input id="directory-username" name="username" maxlength="150" required autocomplete="off"><button class="button primary">Find user</button></form></section>
+{% if person %}<section class="card padded"><h2>{{ person.name }} {{ person.surname }}</h2><p>{{ person.username }}</p><p>{{ person.email }}</p><form method="post">{% csrf_token %}<button class="button primary" name="selection" value="{{ selection }}">Add and assign permissions</button></form></section>{% endif %}{% endblock %}

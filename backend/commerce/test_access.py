@@ -97,6 +97,8 @@ class SupervisionTests(TestCase):
         self.company = Company.objects.create(name="Company", code="co")
         self.branch = Location.objects.create(company=self.company, name="Store", code="store", kind="branch")
         self.product = Product.objects.create(company=self.company, home_location=self.branch, name="Milk", barcode="001", price_minor=450)
+        from .models import StockItem
+        StockItem.objects.create(product=self.product, location=self.branch)
         self.register = Register.objects.create(location=self.branch, code="pos", name="POS")
         self.user, self.access, self.operator = make_operator(self.register)
         self.manager = get_user_model().objects.create_user(username="manager", password="test-password")

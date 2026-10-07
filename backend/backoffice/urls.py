@@ -1,8 +1,16 @@
 from django.urls import path
-from . import views, management
+from . import views, management, catalog, integrations
 
 app_name = 'backoffice'
 urlpatterns = [
+    path('integrations/', integrations.index, name='integrations'),
+    path('integrations/directory/users/', integrations.directory_users, name='directory-users'),
+    path('integrations/waybills/', integrations.waybills, name='waybills'),
+    path('integrations/waybills/<uuid:identifier>/', integrations.waybill, name='waybill'),
+    path('integrations/<str:kind>/settings/', integrations.settings, name='integration-settings'),
+    path('integrations/<str:kind>/test/', integrations.test_connection, name='integration-test'),
+    path('catalog/<str:kind>/import/', catalog.catalog_import, name='catalog-import'),
+    path('catalog/<str:kind>/example.<str:extension>', catalog.example, name='catalog-example'),
     path('advertisements/', management.advertisements, name='advertisements'),
     path('advertisements/add/', management.advertisement_edit, name='advertisement-add'),
     path('advertisements/<uuid:identifier>/', management.advertisement_edit, name='advertisement-edit'),

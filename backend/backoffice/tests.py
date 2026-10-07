@@ -73,20 +73,22 @@ class BackOfficeTests(TestCase):
         self.client.post('/i18n/setlang/', {'language':'ka', 'next':'/'})
         self.assertContains(self.client.get('/'), 'მიმოხილვა')
 
-    def test_product_creation_audits_opening_stock_and_prices_remain_immutable(self):
+    def test_product_creation_is_catalog_only_and_prices_remain_immutable(self):
         data = {'name':'Milk', 'barcode':'0001', 'home_location':self.branch.pk, 'unit':'piece', 'price':'4.50', 'opening_quantity':'100', 'active':'on'}
         self.assertEqual(self.client.post('/manage/products/add/', data).status_code, 302)
         product = Product.objects.get()
         original = product.current_price_id
-        self.assertEqual(StockItem.objects.get().quantity_milli, 100000)
-        self.assertEqual(StockMovement.objects.get().actor, self.owner)
+        self.assertFalse(StockItem.objects.exists())
+        self.assertFalse(StockMovement.objects.exists())
+        self.assertIsNone(product.home_location_id)
         self.assertEqual(self.client.post(f'/manage/products/{product.pk}/', {**data, 'price':'5.00'}).status_code, 302)
         product.refresh_from_db()
         self.assertNotEqual(product.current_price_id, original)
         self.assertEqual(product.prices.get(pk=original).price_minor, 450)
         response = self.client.post('/manage/products/add/', {**data, 'barcode':'0002', 'opening_quantity':'1.5'})
-        self.assertIn('opening_quantity', response.context['form'].errors)
-        self.assertEqual(Product.objects.count(), 1)
+        self.assertEqual(response.status_code, 302)
+        self.assertEqual(Product.objects.count(), 2)
+        self.assertFalse(StockItem.objects.exists())
 
     def test_backend_application_and_permission_gates(self):
         user = get_user_model().objects.create_user('employee', PASSWORD)

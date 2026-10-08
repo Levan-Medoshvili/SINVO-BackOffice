@@ -4,7 +4,7 @@ The root Jenkinsfile deploys the trusted **Production** branch to the Rocky Linu
 
 ## Jenkins requirements
 
-Use a Linux Jenkins agent with Bash, Git, OpenSSH (`ssh`, `scp`, `ssh-keygen`), tar and sha256sum. OpenSSH must support `SSH_ASKPASS_REQUIRE=force` and `StrictHostKeyChecking=accept-new`. Jenkins needs Pipeline, Git and Credentials Binding; the configured SCM checkout must have access to this private repository. No SSH Pipeline Steps/sshpass plugin is needed.
+Use a Linux Jenkins agent labeled `linux` with Bash, Git, OpenSSH (`ssh`, `scp`, `ssh-keygen`), tar and sha256sum. OpenSSH must support `SSH_ASKPASS_REQUIRE=force` and `StrictHostKeyChecking=accept-new`. Jenkins needs Pipeline, Git and Credentials Binding; the configured SCM checkout must have access to this private repository. No SSH Pipeline Steps/sshpass plugin is needed.
 
 Configure Pipeline from SCM to branch `*/Production`, script path `Jenkinsfile`, or use a multibranch job discovering Production. The existing webhook delivers pushes; its Jenkins job still controls which branch it builds. Other branches archive source and never receive the server credential. Keep production credentials unavailable to untrusted PR jobs and use a trusted build agent.
 
@@ -24,7 +24,7 @@ Preinstall the server's console-verified SSH host key in the Jenkins OS user's p
 2. Installs build libraries, Nginx and selected database-client dependencies. Python 3.14.8 is built under `/opt/pos-erp-python/`, with a pinned source digest and checks for SSL/SQLite/ctypes. Rocky's system Python remains in place.
 3. Creates unprivileged service/build accounts, data directories, systemd configuration and the Nginx site.
 4. On a fresh default installation, installs PostgreSQL 16, creates a dedicated ERP database/login, and a separate disposable CI database/login. Existing different-major PostgreSQL data and conflicting database names cause a stop for review.
-5. Generates application/database secrets and a first-start installation key in root-owned mode-600 files under `/etc/pos-erp`. Existing configuration and passwords are preserved.
+5. Generates application/database secrets and a first-start installation key in root-owned mode-600 files under `/etc/pos-erp`. The directory is owned by `root:simplepos` with mode `0710`: the service can traverse it to read the public release verification key, while the environment files remain readable only by root and are supplied by systemd. Existing configuration and passwords are preserved.
 6. Installs the selected Python requirements into the release virtual environment as an unprivileged build user. The application itself runs as `simplepos`.
 7. Checks migrations and runs backend tests against the separate CI database, including real database locking tests.
 8. Stops central application writes, creates and checks a PostgreSQL backup, applies migrations, collects static assets, switches the release and starts Gunicorn/Nginx. New installations create the administrator through browser setup.

@@ -35,7 +35,10 @@ fi
 id simplepos >/dev/null 2>&1 || useradd --system --home-dir /var/lib/pos-erp --shell /sbin/nologin simplepos
 id pos-erp-build >/dev/null 2>&1 || useradd --system --create-home --home-dir /var/lib/pos-erp-build --shell /sbin/nologin pos-erp-build
 install -d -o root -g root -m 755 /opt/pos-erp /opt/pos-erp/releases
-install -d -o root -g root -m 700 /etc/pos-erp /var/backups/pos-erp
+# The service must traverse this directory to read the public verification key.
+# Environment files remain root-owned mode 0600 and are loaded by systemd.
+install -d -o root -g simplepos -m 710 /etc/pos-erp
+install -d -o root -g root -m 700 /var/backups/pos-erp
 install -d -o simplepos -g simplepos -m 750 /var/lib/pos-erp /var/lib/pos-erp/static /var/lib/pos-erp/media /var/lib/pos-erp/cashier-releases
 install -d -o pos-erp-build -g pos-erp-build -m 750 /var/lib/pos-erp-ci
 "$python" "$scripts/configure.py" "$engine" "$server_ip" "$networks"

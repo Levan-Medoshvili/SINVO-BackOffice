@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    agent { label 'linux' }
     options { timestamps(); skipDefaultCheckout(true); disableConcurrentBuilds(); timeout(time: 75, unit: 'MINUTES'); buildDiscarder(logRotator(numToKeepStr: '15')) }
     parameters {
         string(name: 'TARGET_HOST', defaultValue: '10.0.110.151', description: 'Rocky Linux 9 ERP server')

@@ -66,6 +66,8 @@ BackOffice now has **Cashier updates → Import release**. Upload the Windows ZI
 
 Configure `SIMPLEPOS_RELEASE_PUBLIC_KEY` (default `/etc/pos-erp/cashier-release-public.pem`) with your existing trusted RSA public key, readable by `simplepos`. Keep the private key with the release operator, outside both repositories and off the BackOffice server. Do not replace an existing key to resolve a signature error.
 
+The managed deployment sets `/etc/pos-erp` to `root:simplepos` mode `0710` and the public verification file to mode `0644`. Private environment files stay root-owned mode `0600`. If Jenkins reports `Publisher verification is configured` followed by a missing-key error during import, deploy the current ERP Production revision before retrying Cashier publication. Older deployments made the containing directory root-only, preventing the service from accessing the installed public key.
+
 For a new installation with no signing key, create an RSA key of at least 3072 bits in a protected location, export only the public key to the server, and use the Cashier publisher:
 
 ```sh

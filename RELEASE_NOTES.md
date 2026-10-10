@@ -33,3 +33,5 @@ Update this file when user-facing functionality changes. Remove items that are n
 - Installing remains disabled until independent privilege separation, backup and recovery are implemented.
 
 - Add read-only installation preflight checking release layout, private storage and free space; explicitly block installation pending publisher signatures and database recovery verification.
+
+- Add explicit PostgreSQL backup validation against a new isolated disposable database, with private files, SHA-256, and no application interruption.

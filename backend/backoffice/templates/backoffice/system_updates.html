@@ -1,0 +1,34 @@
+{% extends 'backoffice/base.html' %}
+{% block title %}Software updates{% endblock %}
+{% block content %}
+<style>
+.su-layout{max-width:980px;margin:0 auto}.su-header{margin:0 0 24px}.su-header p{color:var(--muted);margin-top:5px}
+.su-card{background:var(--surface,#fff);border:1px solid var(--line);border-radius:18px;padding:26px;margin-bottom:17px;box-shadow:0 6px 22px #15273309}
+.su-top{display:flex;align-items:flex-start;justify-content:space-between;gap:20px;flex-wrap:wrap}
+.su-kicker{font-size:11px;letter-spacing:.12em;font-weight:800;color:var(--muted);text-transform:uppercase}
+.su-version{font-size:30px;font-weight:750;margin:8px 0 0}.su-caption{color:var(--muted);font-size:13px}
+.su-chip{display:inline-block;padding:7px 12px;border-radius:30px;background:var(--tint);color:var(--accent-dark);font-weight:700}
+.su-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:22px}
+.su-primary{border:0;background:var(--accent);color:#fff;padding:12px 20px;border-radius:10px;font-weight:700}
+.su-primary[disabled]{opacity:.45}.su-status{margin-top:15px;color:var(--muted)}
+.su-notes{white-space:pre-wrap;overflow-wrap:anywhere;padding:15px;background:var(--tint);border-radius:12px;line-height:1.7}
+.su-overlay{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;background:#08162682;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+.su-dialog{background:var(--surface,#fff);color:inherit;border:1px solid var(--line);box-shadow:0 20px 70px #0005;border-radius:20px;padding:34px;max-width:440px;width:calc(100% - 36px);text-align:center}
+.su-spinner{width:46px;height:46px;border-radius:50%;border:4px solid var(--line);border-top-color:var(--accent);animation:su-spin .85s linear infinite;margin:0 auto 18px}
+@keyframes su-spin{to{transform:rotate(360deg)}}.su-progress{height:8px;background:var(--line);border-radius:8px;margin:18px 0 7px;overflow:hidden}.su-progress>span{display:block;background:var(--accent);height:100%;width:100%;animation:su-flow 1.4s ease-in-out infinite;transform-origin:left}@keyframes su-flow{0%,100%{transform:scaleX(.14)}50%{transform:scaleX(.8)}}
+</style>
+<div class="su-layout">
+<div class="su-header"><h1>BackOffice software updates</h1><p>Check approved SINVO releases, review changes, and prepare for a safe update.</p></div>
+<section class="su-card">
+<div class="su-top"><div><div class="su-kicker">Installed BackOffice version</div><div class="su-version">{{ installed_version }}</div><div class="su-caption">Update service: dev-updates.sinvo.ge</div></div><span class="su-chip" id="su-badge">Awaiting check</span></div>
+<div class="su-actions"><button id="su-check" class="su-primary" type="button">Check for updates</button><button id="su-install" type="button" class="su-primary" disabled title="Installer service not yet configured">Update now</button></div>
+<div id="su-status" class="su-status" role="status" aria-live="polite">{% if not enrollment_configured %}This server has not completed its update enrollment setup yet.{% else %}Ready to check for approved updates.{% endif %}</div>
+</section>
+<section class="su-card" id="su-release" hidden><div class="su-kicker">Available release</div><h2 id="su-version" style="font-size:24px;margin:8px 0 15px"></h2><h3 style="margin-bottom:9px">What's changed</h3><div class="su-notes" id="su-notes"></div><p id="su-size" class="su-caption" style="margin-top:12px"></p><p class="su-caption" style="margin-top:12px">Installing an update requires a verified package, database backup, maintenance window, health check and recovery plan. The independent installer is not enabled yet.</p></section>
+</div>
+<div class="su-overlay" id="su-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="su-dialog-title">
+<div class="su-dialog"><div class="su-spinner" aria-hidden="true"></div><h2 id="su-dialog-title">Checking for updates</h2><p class="su-caption">Contacting SINVO Update Server securely…</p><div class="su-progress" aria-hidden="true"><span></span></div><small class="su-caption">Please wait</small></div></div>
+<script>
+(()=>{const btn=document.getElementById('su-check'),overlay=document.getElementById('su-overlay'),msg=document.getElementById('su-status'),badge=document.getElementById('su-badge'),card=document.getElementById('su-release');const csrf='{{ csrf_token }}';btn.addEventListener('click',async()=>{btn.disabled=true;overlay.hidden=false;card.hidden=true;try{const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),18000);let response;try{response=await fetch('{% url "backoffice:system-updates-check" %}',{method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':csrf,'Accept':'application/json'},signal:controller.signal})}finally{clearTimeout(timeout)}const data=await response.json();if(!response.ok)throw Error(data.message||'Update check failed');badge.textContent=data.status==='available'?'Update available':data.status==='current'?'Up to date':data.status==='pending_approval'?'Pending approval':'Unavailable';msg.textContent=data.message||'An approved update is available.';if(data.status==='available'&&data.release){card.hidden=false;document.getElementById('su-version').textContent=data.release.version||'Unknown';document.getElementById('su-notes').textContent=data.release.notes||'No release notes provided.';document.getElementById('su-size').textContent=(Number(data.release.size||0)/1048576).toFixed(1)+' MB · SHA-256: '+(data.release.sha256||'');}}catch(err){badge.textContent='Check failed';msg.textContent='Could not check for updates. '+(err.name==='AbortError'?'Request timed out.':err.message)}finally{overlay.hidden=true;btn.disabled=false}})})();
+</script>
+{% endblock %}

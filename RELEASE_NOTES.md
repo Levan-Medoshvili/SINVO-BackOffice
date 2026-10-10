@@ -20,3 +20,7 @@ Update this file when user-facing functionality changes. Remove items that are n
 - Approved installations can send heartbeats and discover authorized updates; no packages are installed automatically.
 
 - Connected Installations now displays the configured BackOffice company name alongside the permanent installation identity.
+
+## Software update review
+- Added a dedicated BackOffice update-check screen with a non-disruptive checking overlay, changelog preview and update availability.
+- Updates remain review-only until the independent installer and backup/rollback safeguards are configured.

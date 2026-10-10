@@ -1,5 +1,5 @@
 from django.urls import path
-from . import views, management, catalog, integrations
+from . import views, management, catalog, integrations, server_updates
 
 app_name = 'backoffice'
 urlpatterns = [
@@ -16,6 +16,8 @@ urlpatterns = [
     path('advertisements/<uuid:identifier>/', management.advertisement_edit, name='advertisement-edit'),
     path('advertisements/<uuid:identifier>/preview/', management.advertisement_preview, name='advertisement-preview'),
     path('updates/', management.updates, name='updates'),
+    path('system-updates/', server_updates.page, name='system-updates'),
+    path('system-updates/check/', server_updates.check, name='system-updates-check'),
     path('updates/import/', management.release_import, name='release-import'),
     path('updates/<uuid:identifier>/', management.rollout, name='rollout'),
     path('updates/<uuid:identifier>/cancel/', management.cancel_rollout, name='rollout-cancel'),

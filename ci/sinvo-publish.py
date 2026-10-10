@@ -13,7 +13,7 @@ import uuid
 if len(sys.argv) != 4:
     raise SystemExit("Usage: sinvo-publish.py PRODUCT FILE HTTPS_ENDPOINT")
 product, filename, endpoint = sys.argv[1:]
-if product not in {"backoffice", "cashier", "agent"} or not endpoint.startswith("https://updates.sinvo.ge/"):
+if product not in {"backoffice", "cashier", "agent"} or endpoint != "https://dev-updates.sinvo.ge/api/v1/releases/publish/":
     raise SystemExit("Invalid product or endpoint")
 token = os.environ.get("SINVO_PUBLISH_TOKEN", "")
 if len(token) < 32:

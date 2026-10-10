@@ -36,6 +36,8 @@ manifest = {
 private_seed = os.environ.get("SINVO_SIGNING_PRIVATE_KEY_B64", "").strip()
 key_id = os.environ.get("SINVO_SIGNING_KEY_ID", "").strip()
 signature = ""
+if not private_seed:
+    raise SystemExit("Publisher signing key is not configured; refusing unsigned release")
 if private_seed:
     if not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", key_id):
         raise SystemExit("Set a valid SINVO_SIGNING_KEY_ID")

@@ -30,12 +30,12 @@ ls -lh artifacts/backoffice-staging.tar.gz
     }
     stage('Publish to SINVO Update Server') {
       steps {
-        withCredentials([string(credentialsId: 'sinvo-publisher-token', variable: 'SINVO_PUBLISH_TOKEN')]) {
+        withCredentials([string(credentialsId: 'sinvo-publisher-token', variable: 'SINVO_PUBLISH_TOKEN'), string(credentialsId: 'sinvo-staging-signing-key', variable: 'SINVO_SIGNING_PRIVATE_KEY_B64')]) {
           sh '''#!/usr/bin/env bash
 set -euo pipefail
 set +x
 SINVO_RELEASE_NOTES="$(cat RELEASE_NOTES.md)" \
-SINVO_RELEASE_VERSION="0.1.0+staging.${BUILD_NUMBER}" .ci-venv/bin/python ci/sinvo-publish.py backoffice artifacts/backoffice-staging.tar.gz "https://dev-updates.sinvo.ge/api/v1/releases/publish/"
+SINVO_SIGNING_KEY_ID="staging-1" SINVO_RELEASE_VERSION="0.1.0+staging.${BUILD_NUMBER}" .ci-venv/bin/python ci/sinvo-publish.py backoffice artifacts/backoffice-staging.tar.gz "https://dev-updates.sinvo.ge/api/v1/releases/publish/"
 '''
         }
       }

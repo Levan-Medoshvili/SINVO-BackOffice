@@ -15,6 +15,7 @@ import urllib.request
 from urllib.parse import urlsplit
 
 from sinvo_enrollment import _request, _identity_file, DEFAULT_ENDPOINT, DEFAULT_STATE
+from sinvo_signature import verify_manifest
 
 SHA256 = re.compile(r"^[0-9a-f]{64}$")
 MAX_SIZE = 512 * 1024 * 1024
@@ -25,7 +26,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def download_verified(endpoint, state_path, output_directory, progress=None):
+def download_verified(endpoint, state_path, output_directory, progress=None, require_signature=False, trusted_key_id='', trusted_public_key_file=''):
     endpoint = endpoint.rstrip("/")
     u = urlsplit(endpoint)
     if u.scheme != "https" or not u.hostname or u.username or u.password or u.path or u.query or u.fragment:
@@ -51,6 +52,11 @@ def download_verified(endpoint, state_path, output_directory, progress=None):
         release.get("product") != "backoffice" or
         release.get("channel") != "staging"):
         raise RuntimeError("Invalid or untrusted release metadata")
+    signature_verified = False
+    if require_signature:
+        signature_verified = verify_manifest(release, trusted_key_id, trusted_public_key_file)
+    elif trusted_key_id and trusted_public_key_file and release.get("signature"):
+        signature_verified = verify_manifest(release, trusted_key_id, trusted_public_key_file)
     if progress:
         progress("downloading", 10, "Authenticated and release metadata validated")
     destination = Path(output_directory)
@@ -89,7 +95,7 @@ def download_verified(endpoint, state_path, output_directory, progress=None):
         if progress:
             progress("verifying", 95, "Package size and SHA-256 verified")
         return {"file": str(target), "bytes": bytes_read, "sha256": sha,
-                "version": release.get("version", "")}
+                "version": release.get("version", ""), "signature_verified": signature_verified}
     except BaseException:
         target.unlink(missing_ok=True)
         raise
@@ -100,11 +106,17 @@ def main():
     parser.add_argument("--endpoint", default=os.getenv("SINVO_UPDATE_ENDPOINT", DEFAULT_ENDPOINT))
     parser.add_argument("--state", default=os.getenv("SINVO_CLIENT_IDENTITY_FILE", DEFAULT_STATE))
     parser.add_argument("--directory", required=True, help="Private existing directory for verified archives")
+    parser.add_argument("--require-signature", action="store_true", help="Fail closed for unsigned packages")
+    parser.add_argument("--key-id", default=os.getenv("SINVO_SIGNING_KEY_ID", ""))
+    parser.add_argument("--public-key", default=os.getenv("SINVO_SIGNING_PUBLIC_KEY_FILE", ""))
     args = parser.parse_args()
     try:
-        result = download_verified(args.endpoint, args.state, args.directory)
+        result = download_verified(args.endpoint, args.state, args.directory,
+            require_signature=args.require_signature,
+            trusted_key_id=args.key_id, trusted_public_key_file=args.public_key)
         print("Verified package:", result["file"])
         print("Release:", result["version"], "size:", result["bytes"], "sha256:", result["sha256"])
+        print("Publisher signature:", "VERIFIED" if result["signature_verified"] else "NOT VERIFIED - DO NOT INSTALL")
         return 0
     except (OSError, ValueError, RuntimeError) as error:
         print("Package download/verification failed:", str(error), file=sys.stderr)

@@ -31,7 +31,8 @@ print("Publisher token loaded:", bool(token), flush=True)
 print("Publisher token length:", len(token), flush=True)
 print("Publisher token surrounding whitespace:", token != token.strip(), flush=True)
 PY
-SINVO_PUBLISH_DEBUG=1 SINVO_RELEASE_VERSION="0.1.0+staging.${BUILD_NUMBER}" python3.11 ci/sinvo-publish.py backoffice artifacts/backoffice-staging.tar.gz "https://updates.sinvo.ge/api/v1/releases/publish/"
+SINVO_RELEASE_NOTES="$(git log -8 --format='%s' | sed 's/^/- /')" \
+SINVO_RELEASE_VERSION="0.1.0+staging.${BUILD_NUMBER}" python3.11 ci/sinvo-publish.py backoffice artifacts/backoffice-staging.tar.gz "https://updates.sinvo.ge/api/v1/releases/publish/"
 '''
         }
       }

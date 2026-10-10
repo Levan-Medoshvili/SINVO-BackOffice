@@ -42,6 +42,18 @@ class EnrollmentTests(unittest.TestCase):
                 sinvo_enrollment.run("https://dev-updates.sinvo.ge", str(Path(directory) / "identity.json"), "Branch 1", "0.1.0")
                 self.assertEqual(request.call_count, 1)
 
+    def test_heartbeat_includes_company_name(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with patch.object(sinvo_enrollment, "_request", side_effect=[
+                (200, {"status": "approved"}),
+                (200, {"status": "ok"}),
+                (200, {"update_available": False, "release": None}),
+            ]) as request:
+                sinvo_enrollment.run("https://dev-updates.sinvo.ge",
+                    str(Path(directory) / "identity.json"),
+                    "SINVO BackOffice — DANI LLC", "0.1.0", company_name="DANI LLC")
+                self.assertEqual(request.call_args_list[1].kwargs["payload"]["company_name"], "DANI LLC")
+
     def test_approved_checks_but_never_installs(self):
         with tempfile.TemporaryDirectory() as directory:
             with patch.object(sinvo_enrollment, "_request", side_effect=[

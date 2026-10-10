@@ -18,3 +18,5 @@ Update this file when user-facing functionality changes. Remove items that are n
 ## Installation enrollment
 - New BackOffice instances can create a durable unique identity and request approval from the SINVO development Update Server.
 - Approved installations can send heartbeats and discover authorized updates; no packages are installed automatically.
+
+- Connected Installations now displays the configured BackOffice company name alongside the permanent installation identity.

@@ -78,7 +78,17 @@ def _request(endpoint, path, token=None, payload=None):
         raise RuntimeError(f"SINVO request failed: HTTP {error.code}") from None
 
 
-def run(endpoint, state_path, name, version):
+def company_name_from_backoffice():
+    """Read the existing configured company; no extra customer configuration."""
+    import django
+    os.environ.setdefault("DJANGO_SETTINGS_MODULE", "config.settings")
+    django.setup()
+    from commerce.models import Company
+    return (Company.objects.filter(installation_slot=1)
+            .values_list("name", flat=True).first() or "").strip()
+
+
+def run(endpoint, state_path, name, version, company_name=""):
     state = _identity_file(state_path)
     token = state["credential"]
     status_code, current = _request(endpoint, "/api/v1/client/enrollment-status/", token=token)
@@ -106,7 +116,7 @@ def run(endpoint, state_path, name, version):
     if status not in ("approved", "updates_suspended", "subscription_expired"):
         raise RuntimeError("Unexpected SINVO enrollment status")
     hb_code, _ = _request(endpoint, "/api/v1/client/heartbeat/", token=token,
-                          payload={"software_version": version})
+                          payload={"software_version": version, **({"company_name": company_name} if company_name else {})})
     if hb_code != 200:
         raise RuntimeError(f"Heartbeat rejected: HTTP {hb_code}")
     if status != "approved":
@@ -130,7 +140,9 @@ def main():
     parser.add_argument("--version", default=os.getenv("SINVO_SOFTWARE_VERSION", "0.1.0"))
     args = parser.parse_args()
     try:
-        run(args.endpoint, args.state, args.name, args.version)
+        configured_company = company_name_from_backoffice()
+        display_name = ("SINVO BackOffice — " + configured_company) if configured_company else args.name
+        run(args.endpoint, args.state, display_name, args.version, company_name=configured_company)
     except (OSError, RuntimeError, ValueError, urllib.error.URLError) as err:
         print("SINVO update enrollment check failed:", str(err), file=sys.stderr)
         return 1

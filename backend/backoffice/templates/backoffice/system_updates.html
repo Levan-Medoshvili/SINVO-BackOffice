@@ -24,11 +24,22 @@
 <div class="su-actions"><button id="su-check" class="su-primary" type="button">Check for updates</button><button id="su-install" type="button" class="su-primary" disabled title="Installer service not yet configured">Update now</button></div>
 <div id="su-status" class="su-status" role="status" aria-live="polite">{% if not enrollment_configured %}This server has not completed its update enrollment setup yet.{% else %}Ready to check for approved updates.{% endif %}</div>
 </section>
+<section class="su-card">
+  <div class="su-kicker">Package preparation</div>
+  <h2 style="margin:10px 0">Verified download status</h2>
+  <div id="su-prepare-stage" class="su-caption">Not started</div>
+  <div style="margin-top:12px;background:var(--line);height:9px;border-radius:8px;overflow:hidden"><div id="su-prepare-bar" style="width:0%;height:100%;background:var(--accent);transition:width .3s ease"></div></div>
+  <p id="su-prepare-message" class="su-status">The independent preparation worker has not been run.</p>
+  <p class="su-caption" style="margin-top:10px">Package preparation does not perform installations or restart BackOffice.</p>
+</section>
 <section class="su-card" id="su-release" hidden><div class="su-kicker">Available release</div><h2 id="su-version" style="font-size:24px;margin:8px 0 15px"></h2><h3 style="margin-bottom:9px">What's changed</h3><div class="su-notes" id="su-notes"></div><p id="su-size" class="su-caption" style="margin-top:12px"></p><p class="su-caption" style="margin-top:12px">Installing an update requires a verified package, database backup, maintenance window, health check and recovery plan. The independent installer is not enabled yet.</p></section>
 </div>
 <div class="su-overlay" id="su-overlay" hidden role="dialog" aria-modal="true" aria-labelledby="su-dialog-title">
 <div class="su-dialog"><div class="su-spinner" aria-hidden="true"></div><h2 id="su-dialog-title">Checking for updates</h2><p class="su-caption">Contacting SINVO Update Server securely…</p><div class="su-progress" aria-hidden="true"><span></span></div><small class="su-caption">Please wait</small></div></div>
 <script>
 (()=>{const btn=document.getElementById('su-check'),overlay=document.getElementById('su-overlay'),msg=document.getElementById('su-status'),badge=document.getElementById('su-badge'),card=document.getElementById('su-release');const csrf='{{ csrf_token }}';btn.addEventListener('click',async()=>{btn.disabled=true;overlay.hidden=false;card.hidden=true;try{const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),18000);let response;try{response=await fetch('{% url "backoffice:system-updates-check" %}',{method:'POST',credentials:'same-origin',headers:{'X-CSRFToken':csrf,'Accept':'application/json'},signal:controller.signal})}finally{clearTimeout(timeout)}const data=await response.json();if(!response.ok)throw Error(data.message||'Update check failed');badge.textContent=data.status==='available'?'Update available':data.status==='current'?'Up to date':data.status==='pending_approval'?'Pending approval':'Unavailable';msg.textContent=data.message||'An approved update is available.';if(data.status==='available'&&data.release){card.hidden=false;document.getElementById('su-version').textContent=data.release.version||'Unknown';document.getElementById('su-notes').textContent=data.release.notes||'No release notes provided.';document.getElementById('su-size').textContent=(Number(data.release.size||0)/1048576).toFixed(1)+' MB · SHA-256: '+(data.release.sha256||'');}}catch(err){badge.textContent='Check failed';msg.textContent='Could not check for updates. '+(err.name==='AbortError'?'Request timed out.':err.message)}finally{overlay.hidden=true;btn.disabled=false}})})();
+</script>
+<script>
+(()=>{const stage=document.getElementById('su-prepare-stage'),bar=document.getElementById('su-prepare-bar'),message=document.getElementById('su-prepare-message');async function refresh(){try{const r=await fetch('{% url "backoffice:system-updates-progress" %}',{credentials:'same-origin',cache:'no-store'});if(!r.ok)return;const d=await r.json();stage.textContent=d.stage==='ready'?'Verified and ready (installation disabled)':(d.stage||'idle').replaceAll('_',' ');bar.style.width=Math.max(0,Math.min(100,Number(d.percent)||0))+'%';message.textContent=d.message||'';}catch(e){message.textContent='Progress status temporarily unavailable.'}}refresh();setInterval(refresh,4000)})();
 </script>
 {% endblock %}

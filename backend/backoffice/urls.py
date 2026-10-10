@@ -18,6 +18,7 @@ urlpatterns = [
     path('updates/', management.updates, name='updates'),
     path('system-updates/', server_updates.page, name='system-updates'),
     path('system-updates/check/', server_updates.check, name='system-updates-check'),
+    path('system-updates/progress/', server_updates.preparation_status, name='system-updates-progress'),
     path('updates/import/', management.release_import, name='release-import'),
     path('updates/<uuid:identifier>/', management.rollout, name='rollout'),
     path('updates/<uuid:identifier>/cancel/', management.cancel_rollout, name='rollout-cancel'),

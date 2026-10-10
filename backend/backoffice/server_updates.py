@@ -13,7 +13,7 @@ from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
 from django.shortcuts import render
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 
 from .access import backoffice
 
@@ -87,3 +87,30 @@ def check(request):
         }})
     except (OSError, RuntimeError, ValueError) as exc:
         return JsonResponse({"status": "unavailable", "message": "Update Server cannot be reached securely."}, status=503)
+
+
+@never_cache
+@require_GET
+@backoffice("manage_updates")
+def preparation_status(request):
+    if not request.user.is_superuser:
+        raise PermissionDenied
+    path = Path(os.environ.get("SINVO_UPDATE_PROGRESS_FILE",
+                             "/var/lib/sinvo-backoffice/update-client/progress.json"))
+    if not path.is_file() or path.is_symlink():
+        return JsonResponse({"stage": "idle", "percent": 0,
+                             "message": "No package preparation has been started."})
+    try:
+        content = json.loads(path.read_text(encoding="utf-8"))
+        if not isinstance(content, dict):
+            raise ValueError("Invalid progress")
+        return JsonResponse({
+            "stage": str(content.get("stage", "idle"))[:24],
+            "percent": max(0, min(100, int(content.get("percent", 0)))),
+            "message": str(content.get("message", ""))[:180],
+            "version": str(content.get("version", ""))[:64],
+            "updated_at": str(content.get("updated_at", ""))[:64],
+        })
+    except (OSError, ValueError, TypeError):
+        return JsonResponse({"stage": "unavailable", "percent": 0,
+                             "message": "Progress data cannot be read."}, status=503)

@@ -25,7 +25,7 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None
 
 
-def download_verified(endpoint, state_path, output_directory):
+def download_verified(endpoint, state_path, output_directory, progress=None):
     endpoint = endpoint.rstrip("/")
     u = urlsplit(endpoint)
     if u.scheme != "https" or not u.hostname or u.username or u.password or u.path or u.query or u.fragment:
@@ -51,6 +51,8 @@ def download_verified(endpoint, state_path, output_directory):
         release.get("product") != "backoffice" or
         release.get("channel") != "staging"):
         raise RuntimeError("Invalid or untrusted release metadata")
+    if progress:
+        progress("downloading", 10, "Authenticated and release metadata validated")
     destination = Path(output_directory)
     if not destination.is_dir() or destination.is_symlink() or destination.stat().st_mode & 0o022:
         raise RuntimeError("Create a private, non-world-writable download directory first")
@@ -78,10 +80,14 @@ def download_verified(endpoint, state_path, output_directory):
                     raise RuntimeError("Artifact exceeds declared size")
                 digest.update(chunk)
                 output.write(chunk)
+                if progress:
+                    progress("downloading", min(89, 10 + int(79 * bytes_read / size)), "Downloading approved package")
             output.flush()
             os.fsync(output.fileno())
         if bytes_read != size or digest.hexdigest() != sha:
             raise RuntimeError("Artifact failed length or SHA-256 verification")
+        if progress:
+            progress("verifying", 95, "Package size and SHA-256 verified")
         return {"file": str(target), "bytes": bytes_read, "sha256": sha,
                 "version": release.get("version", "")}
     except BaseException:

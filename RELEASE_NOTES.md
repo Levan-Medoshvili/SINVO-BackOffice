@@ -28,3 +28,6 @@ Update this file when user-facing functionality changes. Remove items that are n
 - Attach immutable release-version and Git-revision metadata to new Staging artifacts.
 - Legacy servers show their real Git revision rather than claiming the default semantic version.
 - Add a separate, read-only download-and-SHA256-verification CLI for approved packages; no extraction or installation.
+
+- Separate package preparation worker persists real downloaded-byte progress; browser can poll progress without accessing credentials.
+- Installing remains disabled until independent privilege separation, backup and recovery are implemented.

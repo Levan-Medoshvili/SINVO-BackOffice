@@ -7,7 +7,9 @@ pipeline {
       steps { sh '''#!/usr/bin/env bash
 set -euo pipefail
 git diff --check
-PYTHONPATH=backend python3.11 -m unittest discover -s backend -p 'test_sinvo_*.py' -v
+python3.11 -m venv .ci-venv
+.ci-venv/bin/python -m pip install --disable-pip-version-check 'cryptography>=44,<47'
+PYTHONPATH=backend .ci-venv/bin/python -m unittest discover -s backend -p 'test_sinvo_*.py' -v
 for script in ci/*.sh deploy/rocky/*.sh; do bash -n "$script"; done
 ''' }
     }
@@ -33,7 +35,7 @@ ls -lh artifacts/backoffice-staging.tar.gz
 set -euo pipefail
 set +x
 SINVO_RELEASE_NOTES="$(cat RELEASE_NOTES.md)" \
-SINVO_RELEASE_VERSION="0.1.0+staging.${BUILD_NUMBER}" python3.11 ci/sinvo-publish.py backoffice artifacts/backoffice-staging.tar.gz "https://dev-updates.sinvo.ge/api/v1/releases/publish/"
+SINVO_RELEASE_VERSION="0.1.0+staging.${BUILD_NUMBER}" .ci-venv/bin/python ci/sinvo-publish.py backoffice artifacts/backoffice-staging.tar.gz "https://dev-updates.sinvo.ge/api/v1/releases/publish/"
 '''
         }
       }

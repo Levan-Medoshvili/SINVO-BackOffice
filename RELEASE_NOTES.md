@@ -31,3 +31,5 @@ Update this file when user-facing functionality changes. Remove items that are n
 
 - Separate package preparation worker persists real downloaded-byte progress; browser can poll progress without accessing credentials.
 - Installing remains disabled until independent privilege separation, backup and recovery are implemented.
+
+- Add read-only installation preflight checking release layout, private storage and free space; explicitly block installation pending publisher signatures and database recovery verification.

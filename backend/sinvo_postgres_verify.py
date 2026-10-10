@@ -87,7 +87,8 @@ def verify_backup(database, backup_dir, *, runner=execute):
             os.fsync(output.fileno())
         if file_path.stat().st_size <= 0:
             raise RuntimeError("Empty PostgreSQL backup")
-        digest = hashlib.file_digest(file_path.open("rb"), "sha256").hexdigest()
+        with file_path.open("rb") as backup_input:
+            digest = hashlib.file_digest(backup_input, "sha256").hexdigest()
         runner(["pg_restore", "--list", str(file_path)])
         checksum_path = Path(str(file_path) + ".sha256")
         with open(checksum_path, "x", encoding="ascii") as handle:

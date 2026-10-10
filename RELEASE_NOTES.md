@@ -14,3 +14,7 @@
 - Builds are registered as inactive releases; the Staging pipeline does not install them on the BackOffice server.
 
 Update this file when user-facing functionality changes. Remove items that are not part of the next release.
+
+## Installation enrollment
+- New BackOffice instances can create a durable unique identity and request approval from the SINVO development Update Server.
+- Approved installations can send heartbeats and discover authorized updates; no packages are installed automatically.

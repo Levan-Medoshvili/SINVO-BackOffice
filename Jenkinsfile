@@ -25,7 +25,7 @@ ls -lh artifacts/backoffice-staging.tar.gz
 set -euo pipefail
 set +x
 SINVO_RELEASE_NOTES="$(cat RELEASE_NOTES.md)" \
-SINVO_RELEASE_VERSION="0.1.0+staging.${BUILD_NUMBER}" python3.11 ci/sinvo-publish.py backoffice artifacts/backoffice-staging.tar.gz "https://updates.sinvo.ge/api/v1/releases/publish/"
+SINVO_RELEASE_VERSION="0.1.0+staging.${BUILD_NUMBER}" python3.11 ci/sinvo-publish.py backoffice artifacts/backoffice-staging.tar.gz "https://dev-updates.sinvo.ge/api/v1/releases/publish/"
 '''
         }
       }

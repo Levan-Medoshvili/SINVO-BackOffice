@@ -30,6 +30,9 @@ def download_verified(endpoint, state_path, output_directory):
     u = urlsplit(endpoint)
     if u.scheme != "https" or not u.hostname or u.username or u.password or u.path or u.query or u.fragment:
         raise ValueError("HTTPS endpoint must be a bare origin")
+    identity_path = Path(state_path)
+    if not identity_path.is_file() or identity_path.is_symlink():
+        raise RuntimeError("Client identity is missing; complete enrollment first")
     state = _identity_file(state_path)
     token = state["credential"]
     status, auth = _request(endpoint, "/api/v1/client/enrollment-status/", token=token)

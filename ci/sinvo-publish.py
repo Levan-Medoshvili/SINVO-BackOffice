@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Upload an immutable Staging build; never install or activate it."""
+import base64
 import hashlib
 import json
 import os
@@ -32,10 +33,27 @@ manifest = {
     "sha256": hashlib.sha256(data).hexdigest(), "size": len(data),
     "notes": os.environ.get("SINVO_RELEASE_NOTES", "Automated Jenkins Staging build")[:10000],
 }
+private_seed = os.environ.get("SINVO_SIGNING_PRIVATE_KEY_B64", "").strip()
+key_id = os.environ.get("SINVO_SIGNING_KEY_ID", "").strip()
+signature = ""
+if private_seed:
+    if not re.fullmatch(r"[A-Za-z0-9._-]{1,64}", key_id):
+        raise SystemExit("Set a valid SINVO_SIGNING_KEY_ID")
+    try:
+        from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
+        seed = base64.b64decode(private_seed, validate=True)
+        if len(seed) != 32:
+            raise ValueError("Seed must be 32 bytes")
+        signer = Ed25519PrivateKey.from_private_bytes(seed)
+    except (ValueError, ImportError) as exc:
+        raise SystemExit("Missing cryptography or invalid signing key") from exc
+    manifest["key_id"] = key_id
 canonical = json.dumps(manifest, sort_keys=True, separators=(",", ":"), ensure_ascii=False)
+if private_seed:
+    signature = base64.b64encode(signer.sign(canonical.encode("utf-8"))).decode("ascii")
 boundary = "sinvo" + uuid.uuid4().hex
 parts = []
-for key, value in [("manifest", canonical)]:
+for key, value in ([("manifest", canonical)] + ([("signature", signature)] if signature else [])):
     parts.append(f"--{boundary}\r\nContent-Disposition: form-data; name=\"{key}\"\r\n\r\n{value}\r\n".encode())
 parts.append(f'--{boundary}\r\nContent-Disposition: form-data; name="artifact"; filename="package.bin"\r\nContent-Type: application/octet-stream\r\n\r\n'.encode() + data + b"\r\n")
 parts.append(f"--{boundary}--\r\n".encode())
@@ -47,7 +65,7 @@ request = urllib.request.Request(endpoint, data=b"".join(parts), headers={
 try:
     with urllib.request.urlopen(request, timeout=90) as response:
         output = json.loads(response.read())
-        print(f"Release accepted as {output.get('status')} (ID {output.get('id')})")
+        print(f"Release accepted as {output.get('status')} (ID {output.get('id')}); signed={bool(signature)}")
 except urllib.error.HTTPError as exc:
     print(f"Publication failed: HTTP {exc.code}; {exc.read(1500).decode(errors='replace')}", file=sys.stderr)
     raise SystemExit(1)

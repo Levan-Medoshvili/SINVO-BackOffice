@@ -24,14 +24,7 @@ ls -lh artifacts/backoffice-staging.tar.gz
           sh '''#!/usr/bin/env bash
 set -euo pipefail
 set +x
-python3.11 - <<'PY'
-import os
-token = os.environ.get("SINVO_PUBLISH_TOKEN", "")
-print("Publisher token loaded:", bool(token), flush=True)
-print("Publisher token length:", len(token), flush=True)
-print("Publisher token surrounding whitespace:", token != token.strip(), flush=True)
-PY
-SINVO_RELEASE_NOTES="$(git log -8 --format='%s' | sed 's/^/- /')" \
+SINVO_RELEASE_NOTES="$(cat RELEASE_NOTES.md)" \
 SINVO_RELEASE_VERSION="0.1.0+staging.${BUILD_NUMBER}" python3.11 ci/sinvo-publish.py backoffice artifacts/backoffice-staging.tar.gz "https://updates.sinvo.ge/api/v1/releases/publish/"
 '''
         }

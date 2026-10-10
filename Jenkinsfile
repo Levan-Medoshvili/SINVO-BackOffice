@@ -17,7 +17,7 @@ set -euo pipefail
 mkdir -p artifacts
 mkdir -p artifacts/staging-source
 git archive --format=tar HEAD backend deploy .python-version | tar -xf - -C artifacts/staging-source
-SINVO_BUILD_VERSION="0.1.0+staging.${BUILD_NUMBER}" SINVO_BUILD_REVISION="${GIT_COMMIT}" python3.11 - <<'PYBUILD'
+SINVO_BUILD_VERSION="0.1.0+staging.${BUILD_NUMBER}" SINVO_BUILD_REVISION="$(git rev-parse --verify HEAD)" python3.11 - <<'PYBUILD'
 import json,os,pathlib
 metadata={"version":os.environ["SINVO_BUILD_VERSION"],"revision":os.environ["SINVO_BUILD_REVISION"]}
 pathlib.Path("artifacts/staging-source/backend/.sinvo-build.json").write_text(json.dumps(metadata)+"\\n")

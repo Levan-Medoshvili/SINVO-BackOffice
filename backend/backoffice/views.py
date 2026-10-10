@@ -55,7 +55,17 @@ def setup(request):
                 return redirect('backoffice:setup')
             form.add_error(None, 'The setup key is invalid or too many attempts were made. Contact your installation administrator.')
         return render(request, 'backoffice/unlock.html', {'form': form})
-    form = SetupForm(request.POST or None)
+    from pathlib import Path
+    preset_path = Path('/var/lib/pos-erp/installation-company.json')
+    preset = {}
+    if preset_path.is_file():
+        try:
+            import json as _json
+            payload = _json.loads(preset_path.read_text())
+            preset = {key: payload[key] for key in ('name', 'name_ka', 'identification_number', 'address', 'phone', 'company_email') if isinstance(payload.get(key), str)}
+        except (OSError, ValueError, TypeError):
+            preset = {}
+    form = SetupForm(request.POST or None, initial=preset)
     if request.method == 'POST' and form.is_valid():
         try:
             with transaction.atomic():
@@ -64,8 +74,9 @@ def setup(request):
                     return redirect('backoffice:login')
                 data = form.cleaned_data
                 company = Company.objects.first() or Company(code='company-' + secrets.token_hex(5))
-                for field in ('name', 'name_ka', 'address', 'phone'):
+                for field in ('name', 'name_ka', 'identification_number', 'address', 'phone'):
                     setattr(company, field, data[field])
+                company.email = data['company_email']
                 company.full_clean()
                 company.save()
                 owner = get_user_model().objects.create_superuser(data['username'], data['password'],

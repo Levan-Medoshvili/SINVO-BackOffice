@@ -8,7 +8,9 @@ from commerce.models import Company, Location, Product, Category, StockItem, Sto
 
 class SetupForm(forms.Form):
     name = forms.CharField(label='Company name (ENG)', max_length=150)
-    name_ka = forms.CharField(label='Company name (GEO)', max_length=150)
+    name_ka = forms.CharField(label='Company name (GEO)', max_length=150, required=False)
+    identification_number = forms.CharField(label='Company identification number', max_length=32)
+    company_email = forms.EmailField(label='Company email', required=False)
     address = forms.CharField(label='Company address', max_length=300, required=False)
     phone = forms.CharField(label='Company phone number', max_length=40, required=False)
     first_name = forms.CharField(label='Admin first name', max_length=255, required=False)
@@ -27,11 +29,11 @@ class SetupForm(forms.Form):
         return data
 
 class CompanyForm(forms.ModelForm):
-    name_ka = forms.CharField(label='Company name (GEO)', max_length=150)
+    name_ka = forms.CharField(label='Company name (GEO)', max_length=150, required=False)
     class Meta:
         model = Company
-        fields = ['name','name_ka','address','phone','theme','advertisement','removal_notice_minutes']
-        labels = {'name':'Company name (ENG)','advertisement':'Customer display welcome text'}
+        fields = ['name','name_ka','identification_number','address','phone','email','theme','advertisement','removal_notice_minutes']
+        labels = {'name':'Company name','identification_number':'Company identification number','phone':'Mobile','email':'Company email','advertisement':'Customer display welcome text'}
 
 class ScopedForm(forms.ModelForm):
     def __init__(self,*args,company,**kwargs):

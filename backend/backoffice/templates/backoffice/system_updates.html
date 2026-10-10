@@ -20,7 +20,7 @@
 <div class="su-layout">
 <div class="su-header"><h1>BackOffice software updates</h1><p>Check approved SINVO releases, review changes, and prepare for a safe update.</p></div>
 <section class="su-card">
-<div class="su-top"><div><div class="su-kicker">Installed BackOffice version</div><div class="su-version">{{ installed_version }}</div><div class="su-caption">Update service: dev-updates.sinvo.ge</div></div><span class="su-chip" id="su-badge">Awaiting check</span></div>
+<div class="su-top"><div><div class="su-kicker">Installed BackOffice version</div><div class="su-version">{{ installed_version }}</div><div class="su-caption">Revision: {{ installed_revision|default:"Not recorded" }} · Update service: dev-updates.sinvo.ge</div></div><span class="su-chip" id="su-badge">Awaiting check</span></div>
 <div class="su-actions"><button id="su-check" class="su-primary" type="button">Check for updates</button><button id="su-install" type="button" class="su-primary" disabled title="Installer service not yet configured">Update now</button></div>
 <div id="su-status" class="su-status" role="status" aria-live="polite">{% if not enrollment_configured %}This server has not completed its update enrollment setup yet.{% else %}Ready to check for approved updates.{% endif %}</div>
 </section>

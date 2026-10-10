@@ -24,3 +24,7 @@ Update this file when user-facing functionality changes. Remove items that are n
 ## Software update review
 - Added a dedicated BackOffice update-check screen with a non-disruptive checking overlay, changelog preview and update availability.
 - Updates remain review-only until the independent installer and backup/rollback safeguards are configured.
+
+- Attach immutable release-version and Git-revision metadata to new Staging artifacts.
+- Legacy servers show their real Git revision rather than claiming the default semantic version.
+- Add a separate, read-only download-and-SHA256-verification CLI for approved packages; no extraction or installation.

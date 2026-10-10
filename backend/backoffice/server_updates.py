@@ -8,6 +8,7 @@ import os
 from pathlib import Path
 
 from django.conf import settings
+from sinvo_release_version import installed_release
 from django.core.exceptions import PermissionDenied
 from django.http import JsonResponse
 from django.shortcuts import render
@@ -40,7 +41,8 @@ def page(request):
         raise PermissionDenied
     return render(request, "backoffice/system_updates.html", {
         "nav": "system-updates",
-        "installed_version": os.environ.get("SINVO_SOFTWARE_VERSION", "Unknown"),
+        "installed_version": installed_release()["label"],
+        "installed_revision": installed_release()["revision"],
         "enrollment_configured": _identity() is not None,
     })
 

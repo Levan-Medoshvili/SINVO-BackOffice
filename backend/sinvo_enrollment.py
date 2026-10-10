@@ -10,7 +10,6 @@ import os
 from pathlib import Path
 import secrets
 import sys
-import tempfile
 import urllib.error
 import urllib.request
 import uuid
@@ -137,12 +136,18 @@ def main():
     parser.add_argument("--endpoint", default=os.getenv("SINVO_UPDATE_ENDPOINT", DEFAULT_ENDPOINT))
     parser.add_argument("--state", default=os.getenv("SINVO_CLIENT_IDENTITY_FILE", DEFAULT_STATE))
     parser.add_argument("--name", default=os.getenv("SINVO_INSTALLATION_NAME", "SINVO BackOffice"))
-    parser.add_argument("--version", default=os.getenv("SINVO_SOFTWARE_VERSION", "0.1.0"))
+    parser.add_argument("--version", default=None, help="Override detected version for testing only")
     args = parser.parse_args()
     try:
         configured_company = company_name_from_backoffice()
         display_name = ("SINVO BackOffice — " + configured_company) if configured_company else args.name
-        run(args.endpoint, args.state, display_name, args.version, company_name=configured_company)
+        from sinvo_release_version import installed_release
+        detected = installed_release()
+        if not detected["version_known"] and args.version is None:
+            print("SINVO: legacy/unversioned installation; update comparison is provisional")
+        run(args.endpoint, args.state, display_name,
+            args.version if args.version is not None else detected["version"],
+            company_name=configured_company)
     except (OSError, RuntimeError, ValueError, urllib.error.URLError) as err:
         print("SINVO update enrollment check failed:", str(err), file=sys.stderr)
         return 1

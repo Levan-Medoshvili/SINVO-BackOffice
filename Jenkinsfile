@@ -7,6 +7,7 @@ pipeline {
       steps { sh '''#!/usr/bin/env bash
 set -euo pipefail
 git diff --check
+PYTHONPATH=backend python3.11 -m unittest discover -s backend -p 'test_sinvo_*.py' -v
 for script in ci/*.sh deploy/rocky/*.sh; do bash -n "$script"; done
 ''' }
     }
@@ -14,7 +15,14 @@ for script in ci/*.sh deploy/rocky/*.sh; do bash -n "$script"; done
       steps { sh '''#!/usr/bin/env bash
 set -euo pipefail
 mkdir -p artifacts
-git archive --format=tar.gz -o artifacts/backoffice-staging.tar.gz HEAD backend deploy .python-version
+mkdir -p artifacts/staging-source
+git archive --format=tar HEAD backend deploy .python-version | tar -xf - -C artifacts/staging-source
+SINVO_BUILD_VERSION="0.1.0+staging.${BUILD_NUMBER}" SINVO_BUILD_REVISION="${GIT_COMMIT}" python3.11 - <<'PYBUILD'
+import json,os,pathlib
+metadata={"version":os.environ["SINVO_BUILD_VERSION"],"revision":os.environ["SINVO_BUILD_REVISION"]}
+pathlib.Path("artifacts/staging-source/backend/.sinvo-build.json").write_text(json.dumps(metadata)+"\\n")
+PYBUILD
+tar -czf artifacts/backoffice-staging.tar.gz -C artifacts/staging-source backend deploy .python-version
 ls -lh artifacts/backoffice-staging.tar.gz
 ''' }
     }

@@ -11,7 +11,7 @@ class WizardTests(unittest.TestCase):
         data={"company_name":"Example","identification_number":"123456789",
               "admin_username":"admin","admin_password":"sampleSecurePass123",
               "database_engine":"postgres","database_location":"local",
-              "database_name":"simplepos_erp"}
+              "database_name":"sinvo-erp"}
         self.assertEqual(module.validate(data),[])
     def test_private_lan_address(self):
         self.assertEqual(module.private_address("10.0.110.160"), "10.0.110.160")
@@ -24,5 +24,5 @@ class WizardTests(unittest.TestCase):
         data={"company_name":"Example","identification_number":"1234",
               "admin_username":"admin","admin_password":"sampleSecurePass123",
               "database_engine":"mssql","database_location":"remote",
-              "database_name":"simplepos_erp","database_host":"10.0.0.5","database_port":"1433"}
+              "database_name":"sinvo-erp","database_host":"10.0.0.5","database_port":"1433"}
         self.assertTrue(any("Remote database" in x for x in module.validate(data)))

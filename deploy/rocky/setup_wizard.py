@@ -57,7 +57,7 @@ small{color:#bad0d4}.error{color:#ffaca7} .grid{display:grid;grid-template-colum
 <option value="remote">Existing database server</option></select></label>
 <label>Server IP/host (remote) <input name="database_host" maxlength="200" placeholder="10.0.110.50"></label>
 <label>Port (remote) <input name="database_port" inputmode="numeric" maxlength="5" placeholder="5432"></label>
-<label>Database name <input name="database_name" maxlength="63" value="simplepos_erp"></label>
+<label>Database name <input name="database_name" maxlength="63" value="sinvo-erp"></label>
 <label>Database username (remote) <input name="database_username" maxlength="100"></label>
 <label>Database password (remote) <input name="database_password" type="password"></label>
 </div></fieldset>
@@ -96,8 +96,8 @@ def validate(values):
             if not 1 <= port <= 65535: raise ValueError()
         except ValueError:
             errors.append("Valid remote database port required")
-    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_]{0,62}", values.get("database_name", "")):
-        errors.append("Use a simple database identifier (letters, digits, underscore)")
+    if not re.fullmatch(r"[A-Za-z][A-Za-z0-9_-]{0,62}", values.get("database_name", "")):
+        errors.append("Use a database name starting with a letter (letters, digits, hyphens and underscores)")
     return errors
 
 

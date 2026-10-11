@@ -43,3 +43,5 @@ in an automatically removed private directory.
 
 Remote PostgreSQL/MySQL/MSSQL connection tests, secure persistent installation
 secrets, signed Update Server downloading and deployment remain to be built.
+
+The proposed default database name is `sinvo-erp`. The current Rocky Linux deployment scripts still provision `simplepos_erp`; the full installer must update those scripts before enabling deployment of this configured database name. Hyphens in PostgreSQL database identifiers require proper SQL identifier quoting.

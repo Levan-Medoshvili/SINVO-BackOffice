@@ -1,30 +1,45 @@
-# First-install configuration wizard (preview)
+# SINVO first-install LAN HTTPS setup (preview only)
 
-This is a **non-installing preview** of the future SINVO setup UI. It validates
-form fields but **does not** authenticate database users, download packages,
-write credentials, or deploy BackOffice. It must not be treated as a completed
-installer.
+The Staging setup wizard is now reachable directly from another workstation
+using the new VM's internal IPv4 address. It is **not yet an installer**:
+field validation is implemented, but no dependencies, PostgreSQL, database
+connectivity checks or BackOffice releases are installed.
 
-On the clean Rocky Linux 9 VM with the BackOffice Staging checkout:
+## Start on a new Rocky Linux 9 VM
 
 ```bash
-python3 deploy/rocky/setup_wizard.py
+sudo dnf install -y openssl
+git clone --branch Staging https://github.com/Levan-Medoshvili/SINVO-BackOffice.git
+cd SINVO-BackOffice
+python3 deploy/rocky/setup_wizard.py --ip YOUR_VM_LAN_IP
 ```
 
-The wizard listens ONLY on `127.0.0.1:8765`. On a Windows workstation run:
-```powershell
-ssh -L 8765:127.0.0.1:8765 root@YOUR_NEW_VM_IP
+The server prints a URL like `https://10.0.110.160:8765/?token=...`.
+Open that **exact URL** from a workstation in the same trusted LAN.
+
+The HTTPS certificate is ephemeral and **self-signed**; browser trust warnings
+are expected. For this first test, **enter only dummy passwords**: without a
+trusted certificate, a network attacker could impersonate the setup page.
+Commercial installation must support a provisioned CA certificate, DNS-validated
+certificate or independently verifiable certificate fingerprint.
+
+If firewalld blocks access, authorize only your administrator computer IP
+temporarily (substitute its actual /32 host address):
+
+```bash
+sudo firewall-cmd --add-rich-rule='rule family="ipv4" source address="10.0.110.100/32" port protocol="tcp" port="8765" accept'
 ```
-Open the URL (including its random token) printed by the wizard in a browser
-on the Windows machine. Do not expose this port on the public LAN.
 
-The wizard collects company name, identification number, address, mobile,
-company email, admin username/password, database engine, local/remote choice,
-remote host/port, and remote login. Remote PostgreSQL/MySQL/MSSQL will require
-an actual authenticated connect-and-query check before real installation.
-Local database automation currently supports PostgreSQL only.
+The rule is *runtime-only*, not permanent; remove after testing:
 
-Future work: a separately issued installation grant for the Update Server,
-a publisher-pinned trusted Ed25519 key bundled in the installer, secure
-artifact extraction, authenticated database verification, temporary secret
-handling, and a privileged deployment worker that retains job state.
+```bash
+sudo firewall-cmd --remove-rich-rule='rule family="ipv4" source address="10.0.110.100/32" port protocol="tcp" port="8765" accept'
+```
+
+The wizard listens only on the chosen VM private IPv4 address, requires a
+random URL token, never logs form details, and automatically stops after
+30 minutes. It requires openssl to generate a one-day temporary SAN certificate
+in an automatically removed private directory.
+
+Remote PostgreSQL/MySQL/MSSQL connection tests, secure persistent installation
+secrets, signed Update Server downloading and deployment remain to be built.

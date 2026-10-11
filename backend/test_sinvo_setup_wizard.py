@@ -13,6 +13,11 @@ class WizardTests(unittest.TestCase):
               "database_engine":"postgres","database_location":"local",
               "database_name":"simplepos_erp"}
         self.assertEqual(module.validate(data),[])
+    def test_private_lan_address(self):
+        self.assertEqual(module.private_address("10.0.110.160"), "10.0.110.160")
+        with self.assertRaises(ValueError): module.private_address("127.0.0.1")
+        with self.assertRaises(ValueError): module.private_address("169.254.3.1")
+
     def test_missing_company_id(self):
         self.assertTrue(module.validate({"company_name":"Example"}) )
     def test_remote_requires_credentials(self):

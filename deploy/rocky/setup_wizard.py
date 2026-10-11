@@ -1,17 +1,20 @@
 #!/usr/bin/env python3
-"""Local-only first-install configuration wizard.
+"""Temporary HTTPS first-install configuration wizard.
 
 No installation, filesystem changes or remote downloads. The installer must
 independently validate signed artifacts, database credentials and privileges
 before consuming wizard configuration in a later phase.
 """
-import getpass
 import html
-import ipaddress
-import json
-import os
 import re
 import secrets
+import argparse
+import ipaddress
+import shutil
+import ssl
+import subprocess
+import tempfile
+import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, urlsplit
 
@@ -59,7 +62,7 @@ small{color:#bad0d4}.error{color:#ffaca7} .grid{display:grid;grid-template-colum
 <label>Database password (remote) <input name="database_password" type="password"></label>
 </div></fieldset>
 <button type="submit">Validate configuration</button></form>
-<p><small>Accessible only through localhost. For remote administration, use an SSH tunnel.</small></p>
+<p><small>Temporary HTTPS setup page, reachable through the selected internal server IP. Use test passwords only until a trusted certificate is configured.</small></p>
 </main></body></html>"""
 
 
@@ -139,22 +142,79 @@ class Handler(BaseHTTPRequestHandler):
         if errors:
             return self.respond(400, HTML.replace("{token}", self.server.setup_token).replace("{message}", '<p class="error">' + html.escape("; ".join(errors)) + "</p>"))
         # Deliberately do not persist the password; currently a safe UI prototype.
-        safe = {k: v for k,v in values.items()
-                if k not in {"admin_password", "database_password"}}
-        print("Validated wizard input (without passwords): " + json.dumps(safe, ensure_ascii=False), flush=True)
+        print("Installer preview configuration validated (no submitted details logged)", flush=True)
         return self.respond(200, """<main><h1>Configuration validated</h1>
 <p>Configuration has passed field validation. No packages, databases or application
 files have been installed. Remote authentication checks and signed deployment
 must be completed before enabling installation.</p></main>""")
 
 
+def private_address(value):
+    """Require an explicit private IPv4 address assigned to this machine."""
+    address = ipaddress.IPv4Address(value)
+    if not address.is_private or address.is_loopback or address.is_link_local:
+        raise ValueError("Specify a private LAN IPv4 address (not localhost)")
+    # Binding below additionally checks the IP is actually assigned to this host.
+    return str(address)
+
+
+def ephemeral_certificate(directory, server_ip):
+    """Generate a short-lived SAN certificate without writing keys to application paths."""
+    openssl = shutil.which("openssl")
+    if not openssl:
+        raise RuntimeError("openssl is required: sudo dnf install -y openssl")
+    certificate = directory + "/setup.crt"
+    key = directory + "/setup.key"
+    command = [
+        openssl, "req", "-x509", "-newkey", "rsa:3072", "-sha256",
+        "-nodes", "-days", "1", "-keyout", key, "-out", certificate,
+        "-subj", "/CN=" + server_ip,
+        "-addext", "subjectAltName=IP:" + server_ip,
+    ]
+    subprocess.run(command, check=True, stdout=subprocess.DEVNULL,
+                   stderr=subprocess.DEVNULL, timeout=30)
+    return certificate, key
+
+
 def main():
+    parser = argparse.ArgumentParser(description="SINVO temporary LAN HTTPS installer preview")
+    parser.add_argument("--ip", required=True, help="VM private LAN IPv4 address")
+    parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument("--minutes", type=int, default=30)
+    args = parser.parse_args()
+    try:
+        ip = private_address(args.ip)
+    except ValueError as exc:
+        parser.error(str(exc))
+    if not 1024 <= args.port <= 65535 or not 1 <= args.minutes <= 60:
+        parser.error("Port must be 1024-65535 and lifetime 1-60 minutes")
+
     token = secrets.token_urlsafe(32)
-    server = ThreadingHTTPServer(("127.0.0.1", 8765), Handler)
+    try:
+        server = ThreadingHTTPServer((ip, args.port), Handler)
+    except OSError as exc:
+        parser.error("Cannot bind to the specified address; ensure it belongs to this VM and port is available: " + str(exc))
     server.setup_token = token
-    print("SINVO configuration wizard: http://127.0.0.1:8765/?token=" + token, flush=True)
-    print("Run from a local browser, or SSH tunnel: ssh -L 8765:127.0.0.1:8765 root@VM_IP", flush=True)
-    server.serve_forever()
+    server.daemon_threads = True
+    with tempfile.TemporaryDirectory(prefix="sinvo-https-") as temporary:
+        certificate, key = ephemeral_certificate(temporary, ip)
+        tls = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        tls.minimum_version = ssl.TLSVersion.TLSv1_2
+        tls.load_cert_chain(certfile=certificate, keyfile=key)
+        server.socket = tls.wrap_socket(server.socket, server_side=True)
+        shutdown = threading.Timer(args.minutes * 60, server.shutdown)
+        shutdown.daemon = True
+        shutdown.start()
+        try:
+            print("SINVO installer preview (HTTPS on private LAN):", flush=True)
+            print("https://" + ip + ":" + str(args.port) + "/?token=" + token, flush=True)
+            print("Auto-shutdown: " + str(args.minutes) + " minutes", flush=True)
+            print("Certificate: temporary self-signed (browser trust warning expected)", flush=True)
+            print("PREVIEW ONLY: no installation or database connection; use disposable test passwords.", flush=True)
+            server.serve_forever(poll_interval=0.25)
+        finally:
+            shutdown.cancel()
+            server.server_close()
 
 
 if __name__ == "__main__":

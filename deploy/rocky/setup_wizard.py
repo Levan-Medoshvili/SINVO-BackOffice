@@ -122,7 +122,7 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         if urlsplit(self.path).path != "/" or not self.authorized():
             return self.respond(404, "<h1>Not found</h1>")
-        return self.respond(200, HTML.format(token=self.server.setup_token, message=""))
+        return self.respond(200, HTML.replace("{token}", self.server.setup_token).replace("{message}", ""))
 
     def do_POST(self):
         if urlsplit(self.path).path != "/submit" or not self.authorized():
@@ -137,9 +137,7 @@ class Handler(BaseHTTPRequestHandler):
         values = {key: body.get(key, [""])[0] for key in FIELDS}
         errors = validate(values)
         if errors:
-            return self.respond(400, HTML.format(
-                token=self.server.setup_token,
-                message='<p class="error">' + html.escape("; ".join(errors)) + "</p>"))
+            return self.respond(400, HTML.replace("{token}", self.server.setup_token).replace("{message}", '<p class="error">' + html.escape("; ".join(errors)) + "</p>"))
         # Deliberately do not persist the password; currently a safe UI prototype.
         safe = {k: v for k,v in values.items()
                 if k not in {"admin_password", "database_password"}}
